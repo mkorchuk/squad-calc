@@ -1,0 +1,52 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+SquadCalc Lite — a stripped-down mortar/target planner inspired by [SquadCalc](https://github.com/sh4rkman/SquadCalc), rebuilt from scratch with only the essentials: map selection, mortar/target placement with a firing solution readout, and browser-persisted sessions. It intentionally omits SquadCalc's weapon picker, factions, servers browser, and heightmap-based ballistics.
+
+## Commands
+
+```bash
+npm install
+npm run fetch-maps   # one-time: downloads basemap.webp for all 25 maps into public/maps/ (gitignored)
+npm run dev           # Vite dev server, http://localhost:5173
+npm run build          # tsc -b (typecheck) && vite build
+npm run preview        # serve the production build locally
+```
+
+There is no lint or test script configured. `npm run build` is the only correctness gate (typecheck + bundling); run it after any change.
+
+## Architecture
+
+**Stack:** React 18 + TypeScript + Vite, Leaflet via `react-leaflet` with `CRS.Simple` (flat, non-geographic coordinates), zustand (+`persist`) for state.
+
+### The core trick: 1 Leaflet unit = 1 in-game meter
+
+Each map's image overlay is placed via `boundsFor()`/`latLngBoundsFor()` in [src/lib/mapBounds.ts](src/lib/mapBounds.ts) as `[[0,0], [-sizeY, sizeX]]`, where `sizeX`/`sizeY` are the map's real in-game dimensions in meters (from [src/data/maps.ts](src/data/maps.ts)). This means a marker's Leaflet `{lat, lng}` *is* its position in game meters (lng = east meters, lat = -(south meters)), so [src/lib/ballistics.ts](src/lib/ballistics.ts) can do distance/bearing/elevation math directly on marker coordinates with no separate scale factor. This differs from upstream SquadCalc, which uses a `pixelSize`/`mapToGameScale` indirection — don't reintroduce that unless there's a reason to.
+
+Ballistics assumes **flat terrain** (`heightDiff = 0`) since no heightmap data is bundled — elevation will be close to but not identical to in-game values on sloped ground.
+
+### Data flow
+
+- [src/data/maps.ts](src/data/maps.ts) — static list of all 25 Squad maps (id, name, image path, size in meters, derived from SquadCalc's SDK corner data). `getMap(id)` looks one up.
+- [src/data/weapons.ts](src/data/weapons.ts) — ballistics constants (`STANDARD_MORTAR`: velocity, gravity, min distance, height offset). Add more `Weapon` entries here if a weapon picker is ever added; nothing else needs to change since `ballistics.ts` takes a `Weapon` argument.
+- [src/lib/ballistics.ts](src/lib/ballistics.ts) — pure functions: `getDistance`, `getBearing` (0-360°, north=0), `getElevation` (returns `{ deg, mil, inRange }`), `getMaxRange`. No React/Leaflet dependencies; safe to unit test directly.
+- [src/store/useAppStore.ts](src/store/useAppStore.ts) — single zustand store, persisted to `localStorage` under key `squadcalc-lite`. Holds `sessions[]`, `activeSessionId`, `placementMode` ("mortar" | "target"). All session mutations go through `updateActive()`, which immutably updates only the currently active session. Switching a session's map (`setMapId`) clears its mortar/targets, since coordinates are map-relative and stale on a different map.
+- [src/store/types.ts](src/store/types.ts) — `Session`, `MortarMark`, `TargetMark`, `PlacementMode`.
+
+### Components
+
+- [src/components/Layout.tsx](src/components/Layout.tsx) — top-level shell: sidebar + map area.
+- [src/components/MapSelector.tsx](src/components/MapSelector.tsx) — top-right map `<select>`; confirms before switching if the active session has marks (they'll be cleared).
+- [src/components/sidebar/](src/components/sidebar/) — `SessionList` + `SessionItem` (rename inline, delete, select, add).
+- [src/components/map/MapView.tsx](src/components/map/MapView.tsx) — the `MapContainer`; renders the image overlay, grid, and markers for the active session. `MapController` (inner component) handles click-to-place (mortar or target depending on `placementMode`) and re-fits bounds when the map changes.
+- [src/components/map/MapGrid.tsx](src/components/map/MapGrid.tsx) — draws the Squad keypad grid (300m major lines + 100m sub-lines, A/B/C... column and 1/2/3... row labels) for whichever map is active, matching SquadCalc's `squadGrid.js` scheme. Rendered into a dedicated Leaflet `Pane` (`zIndex: 450`) so it sits above the map image (400) but below markers (600).
+- [src/components/map/MortarMarker.tsx](src/components/map/MortarMarker.tsx) / [TargetMarker.tsx](src/components/map/TargetMarker.tsx) — draggable markers. Target markers compute their firing solution live (including during drag, via a `drag` event handler that patches the label DOM directly for performance) and show mil/bearing on the map plus a fuller popup with distance/elevation. Right-click removes a marker (mortar or target) via `contextmenu` handlers; `L.DomEvent.preventDefault` suppresses the native context menu.
+- [src/components/map/markerIcons.ts](src/components/map/markerIcons.ts) — builds the Leaflet `DivIcon`s for both marker types (mortar pin with an inline SVG glyph; target ring + floating mil/bearing label).
+- [src/styles/theme.css](src/styles/theme.css) — single global stylesheet (grey/dark-blue theme), including Leaflet control overrides (zoom control is disabled; cursor is a crosshair over the map).
+
+### Map imagery
+
+Basemap `.webp` files are fetched from `https://squadcalc.app/api/img/maps/<id>/basemap.webp` by [scripts/fetch-maps.mjs](scripts/fetch-maps.mjs) into `public/maps/` (gitignored, © OWI/SquadCalc — see README credits). Run `npm run fetch-maps` after a fresh clone or `npm install`; the dev server will otherwise show broken map images.

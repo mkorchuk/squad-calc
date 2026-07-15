@@ -1,0 +1,7 @@
+node_modules
+dist
+*.local
+.DS_Store
+
+# Bundled map imagery (© OWI / SquadCalc). Regenerate with: npm run fetch-maps
+public/maps/*.webp
