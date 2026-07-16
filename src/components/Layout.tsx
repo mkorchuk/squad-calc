@@ -1,4 +1,5 @@
 import SessionList from "./sidebar/SessionList";
+import ToolPanel from "./sidebar/ToolPanel";
 import MapSelector from "./MapSelector";
 import MapView from "./map/MapView";
 import PlacementToolbar from "./map/PlacementToolbar";
@@ -11,7 +12,12 @@ export default function Layout() {
           <h1 className="sidebar__title">SquadCalc</h1>
           <p className="sidebar__subtitle">by absolute</p>
         </div>
-        <SessionList />
+        <div className="sidebar__pane">
+          <SessionList />
+        </div>
+        <div className="sidebar__pane sidebar__pane--tools">
+          <ToolPanel />
+        </div>
       </aside>
 
       <main className="map-area">

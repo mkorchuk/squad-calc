@@ -2,6 +2,8 @@ node_modules
 dist
 *.local
 .DS_Store
+.firebase
+firebase-debug.log
 
 # Bundled map data (© OWI / SquadCalc). Regenerate with: npm run fetch-maps
 public/maps/*.webp

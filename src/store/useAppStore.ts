@@ -2,7 +2,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { DEFAULT_MAP_ID } from "../data/maps";
 import type { ImportedSession } from "../lib/sessionFile";
-import type { PlacementMode, Session, TargetMark } from "./types";
+import type { PlacementMode, Session, TargetMark, TargetTool } from "./types";
+
+export const DEFAULT_SPACING = 15;
+export const MIN_SPACING = 5;
+export const MAX_SPACING = 200;
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -16,6 +20,9 @@ interface AppState {
   sessions: Session[];
   activeSessionId: string | null;
   placementMode: PlacementMode;
+  /** Placement-time settings, not part of a session's saved data. */
+  targetTool: TargetTool;
+  spacing: number;
 
   getActiveSession: () => Session | undefined;
 
@@ -27,9 +34,12 @@ interface AppState {
 
   setMapId: (mapId: string) => void;
   setPlacementMode: (mode: PlacementMode) => void;
+  setTargetTool: (tool: TargetTool) => void;
+  setSpacing: (spacing: number) => void;
 
   setMortar: (lat: number, lng: number) => void;
   addTarget: (lat: number, lng: number) => void;
+  addTargets: (points: { lat: number; lng: number }[]) => void;
   moveTarget: (id: string, lat: number, lng: number) => void;
   moveMortar: (lat: number, lng: number) => void;
   clearMortar: () => void;
@@ -50,6 +60,8 @@ export const useAppStore = create<AppState>()(
         sessions: [first],
         activeSessionId: first.id,
         placementMode: "target",
+        targetTool: "single",
+        spacing: DEFAULT_SPACING,
 
         getActiveSession: () =>
           get().sessions.find((s) => s.id === get().activeSessionId),
@@ -102,6 +114,14 @@ export const useAppStore = create<AppState>()(
 
         setPlacementMode: (mode) => set({ placementMode: mode }),
 
+        // The tools only shape target placement, so picking one implies target mode.
+        setTargetTool: (tool) => set({ targetTool: tool, placementMode: "target" }),
+
+        setSpacing: (spacing) =>
+          set({
+            spacing: Math.min(MAX_SPACING, Math.max(MIN_SPACING, Math.round(spacing))),
+          }),
+
         setMortar: (lat, lng) =>
           set((state) => ({
             sessions: updateActive(state, (s) => ({ ...s, mortar: { lat, lng } })),
@@ -123,6 +143,17 @@ export const useAppStore = create<AppState>()(
               const target: TargetMark = { id: uid(), lat, lng };
               return { ...s, targets: [...s.targets, target] };
             }),
+          })),
+
+        addTargets: (points) =>
+          set((state) => ({
+            sessions: updateActive(state, (s) => ({
+              ...s,
+              targets: [
+                ...s.targets,
+                ...points.map((p) => ({ id: uid(), lat: p.lat, lng: p.lng })),
+              ],
+            })),
           })),
 
         moveTarget: (id, lat, lng) =>

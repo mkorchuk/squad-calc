@@ -23,6 +23,63 @@ export function SaveIcon({ size = 13 }: IconProps) {
   );
 }
 
+export function SingleIcon({ size = 15 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function LineIcon({ size = 15 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 18L20 6" />
+      <circle cx="4" cy="18" r="2.2" />
+      <circle cx="20" cy="6" r="2.2" />
+    </svg>
+  );
+}
+
+export function SpaceIcon({ size = 15 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 4h14v16H5z" />
+      <circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="15" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function ImportIcon({ size = 14 }: IconProps) {
   return (
     <svg
