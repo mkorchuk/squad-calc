@@ -1,6 +1,8 @@
 import { getMap } from "../../data/maps";
 import { useAppStore } from "../../store/useAppStore";
 import type { Session } from "../../store/types";
+import { downloadSession } from "../../lib/sessionFile";
+import { SaveIcon } from "../icons";
 
 interface Props {
   session: Session;
@@ -27,6 +29,16 @@ export default function SessionItem({ session, active }: Props) {
         aria-label="Session name"
       />
       <span className="session-item__meta">{mapName}</span>
+      <button
+        className="icon-btn"
+        title="Save session to file"
+        onClick={(e) => {
+          e.stopPropagation();
+          downloadSession(session);
+        }}
+      >
+        <SaveIcon />
+      </button>
       <button
         className="icon-btn"
         title="Delete session"

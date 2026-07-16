@@ -8,8 +8,8 @@ export default function Layout() {
     <div className="app">
       <aside className="sidebar">
         <div className="sidebar__header">
-          <h1 className="sidebar__title">SquadCalc Lite</h1>
-          <p className="sidebar__subtitle">Mortar &amp; target planner</p>
+          <h1 className="sidebar__title">SquadCalc</h1>
+          <p className="sidebar__subtitle">by absolute</p>
         </div>
         <SessionList />
       </aside>

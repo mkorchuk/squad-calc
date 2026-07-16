@@ -49,19 +49,23 @@ export interface Elevation {
 }
 
 /**
- * High-angle firing elevation for a given distance (flat terrain).
- * Returns { deg, mil, inRange }. `inRange` is false when the target is closer
- * than the weapon minimum or beyond max ballistic range.
+ * High-angle firing elevation for a given distance.
+ * `heightDiff` = targetAltitude - weaponAltitude (meters); pass 0 for flat
+ * terrain. Returns { deg, mil, inRange }. `inRange` is false when the target is
+ * closer than the weapon minimum, beyond max ballistic range, or the required
+ * angle falls outside the weapon's firing-angle range.
  */
-export function getElevation(distance: number, weapon: Weapon): Elevation {
+export function getElevation(
+  distance: number,
+  weapon: Weapon,
+  heightDiff = 0
+): Elevation {
   const { velocity: v, gravity: g, minDistance, heightOffset, angleOffset } = weapon;
 
-  const heightDiff = 0; // flat terrain
   const discriminant =
     v ** 4 - g * (g * distance ** 2 + 2 * (heightDiff - heightOffset) * v ** 2);
 
-  const inRange = distance >= minDistance && discriminant >= 0 && distance > 0;
-  if (!inRange) {
+  if (distance < minDistance || distance <= 0 || discriminant < 0) {
     return { deg: NaN, mil: NaN, inRange: false };
   }
 
@@ -69,5 +73,11 @@ export function getElevation(distance: number, weapon: Weapon): Elevation {
   // High-angle solution (+p1), matching the mortar's arcing trajectory.
   const elevRad = Math.atan((v ** 2 + p1) / (g * distance)) - angleOffset;
   const deg = (elevRad * 180) / Math.PI;
+
+  const [minDeg, maxDeg] = weapon.minElevation;
+  if (deg < minDeg || deg > maxDeg) {
+    return { deg: NaN, mil: NaN, inRange: false };
+  }
+
   return { deg, mil: deg * MIL_PER_DEGREE, inRange: true };
 }

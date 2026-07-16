@@ -13,6 +13,7 @@ export interface Weapon {
   minDistance: number; // meters
   heightOffset: number; // meters, muzzle height above ground
   angleOffset: number; // radians, sight/trajectory offset (0 for mortar)
+  minElevation: [number, number]; // valid firing-angle range in degrees
 }
 
 export const STANDARD_MORTAR: Weapon = {
@@ -23,4 +24,5 @@ export const STANDARD_MORTAR: Weapon = {
   minDistance: 51,
   heightOffset: 1,
   angleOffset: 0,
+  minElevation: [45, 88.875],
 };

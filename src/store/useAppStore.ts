@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { DEFAULT_MAP_ID } from "../data/maps";
+import type { ImportedSession } from "../lib/sessionFile";
 import type { PlacementMode, Session, TargetMark } from "./types";
 
 function uid(): string {
@@ -19,6 +20,7 @@ interface AppState {
   getActiveSession: () => Session | undefined;
 
   addSession: () => void;
+  importSession: (data: ImportedSession) => void;
   renameSession: (id: string, name: string) => void;
   deleteSession: (id: string) => void;
   selectSession: (id: string) => void;
@@ -55,6 +57,18 @@ export const useAppStore = create<AppState>()(
         addSession: () =>
           set((state) => {
             const session = makeSession(`Session ${state.sessions.length + 1}`);
+            return { sessions: [...state.sessions, session], activeSessionId: session.id };
+          }),
+
+        importSession: (data) =>
+          set((state) => {
+            const session: Session = {
+              id: uid(),
+              name: data.name,
+              mapId: data.mapId,
+              mortar: data.mortar,
+              targets: data.targets.map((t) => ({ id: uid(), lat: t.lat, lng: t.lng })),
+            };
             return { sessions: [...state.sessions, session], activeSessionId: session.id };
           }),
 

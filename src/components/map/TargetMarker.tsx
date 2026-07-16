@@ -3,17 +3,21 @@ import { Marker, Popup } from "react-leaflet";
 import L, { type Marker as LeafletMarker } from "leaflet";
 import { useAppStore } from "../../store/useAppStore";
 import type { MortarMark, TargetMark } from "../../store/types";
+import type { MapDefinition } from "../../data/maps";
 import { STANDARD_MORTAR } from "../../data/weapons";
 import { getBearing, getDistance, getElevation } from "../../lib/ballistics";
+import { sampleHeight, type HeightGrid } from "../../lib/heightmap";
 import { targetIcon } from "./markerIcons";
 
 interface Props {
   target: TargetMark;
   index: number;
   mortar: MortarMark | null;
+  map: MapDefinition;
+  heightmap: HeightGrid | null;
 }
 
-export default function TargetMarker({ target, index, mortar }: Props) {
+export default function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
   const moveTarget = useAppStore((s) => s.moveTarget);
   const removeTarget = useAppStore((s) => s.removeTarget);
   const ref = useRef<LeafletMarker>(null);
@@ -22,9 +26,12 @@ export default function TargetMarker({ target, index, mortar }: Props) {
     if (!mortar) return null;
     const distance = getDistance(mortar, target);
     const bearing = getBearing(mortar, target);
-    const elevation = getElevation(distance, STANDARD_MORTAR);
-    return { distance, bearing, elevation };
-  }, [mortar, target]);
+    const mortarAlt = sampleHeight(heightmap, map, mortar.lat, mortar.lng);
+    const targetAlt = sampleHeight(heightmap, map, target.lat, target.lng);
+    const heightDiff = targetAlt - mortarAlt;
+    const elevation = getElevation(distance, STANDARD_MORTAR, heightDiff);
+    return { distance, bearing, elevation, mortarAlt, targetAlt, heightDiff };
+  }, [mortar, target, heightmap, map]);
 
   const icon = useMemo(
     () =>
@@ -43,7 +50,10 @@ export default function TargetMarker({ target, index, mortar }: Props) {
         const pos = m.getLatLng();
         const distance = getDistance(mortar, pos);
         const bearing = getBearing(mortar, pos);
-        const elevation = getElevation(distance, STANDARD_MORTAR);
+        const heightDiff =
+          sampleHeight(heightmap, map, pos.lat, pos.lng) -
+          sampleHeight(heightmap, map, mortar.lat, mortar.lng);
+        const elevation = getElevation(distance, STANDARD_MORTAR, heightDiff);
         const el = m.getElement();
         if (!el) return;
         const milEl = el.querySelector(".target-marker__mil");
@@ -62,7 +72,7 @@ export default function TargetMarker({ target, index, mortar }: Props) {
         removeTarget(target.id);
       },
     }),
-    [moveTarget, removeTarget, target.id, mortar]
+    [moveTarget, removeTarget, target.id, mortar, heightmap, map]
   );
 
   return (
@@ -100,6 +110,13 @@ export default function TargetMarker({ target, index, mortar }: Props) {
             ) : (
               <div className="readout__warn">Out of range for standard mortar.</div>
             )}
+            <div className="readout__row">
+              <span className="readout__label">Altitude</span>
+              <span className="readout__value">
+                {solution.targetAlt.toFixed(0)} m ({solution.heightDiff >= 0 ? "+" : ""}
+                {solution.heightDiff.toFixed(0)} m)
+              </span>
+            </div>
           </>
         )}
 

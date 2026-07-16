@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-SquadCalc Lite — a stripped-down mortar/target planner inspired by [SquadCalc](https://github.com/sh4rkman/SquadCalc), rebuilt from scratch with only the essentials: map selection, mortar/target placement with a firing solution readout, and browser-persisted sessions. It intentionally omits SquadCalc's weapon picker, factions, servers browser, and heightmap-based ballistics.
+This app (internally "SquadCalc Lite" in code/package name) is a stripped-down mortar/target planner inspired by [SquadCalc](https://github.com/sh4rkman/SquadCalc), rebuilt from scratch with only the essentials: map selection, mortar/target placement with a firing solution readout (including heightmap-based elevation), and browser-persisted sessions. It intentionally omits SquadCalc's weapon picker, factions, and servers browser.
 
 ## Commands
 
@@ -26,7 +26,9 @@ There is no lint or test script configured. `npm run build` is the only correctn
 
 Each map's image overlay is placed via `boundsFor()`/`latLngBoundsFor()` in [src/lib/mapBounds.ts](src/lib/mapBounds.ts) as `[[0,0], [-sizeY, sizeX]]`, where `sizeX`/`sizeY` are the map's real in-game dimensions in meters (from [src/data/maps.ts](src/data/maps.ts)). This means a marker's Leaflet `{lat, lng}` *is* its position in game meters (lng = east meters, lat = -(south meters)), so [src/lib/ballistics.ts](src/lib/ballistics.ts) can do distance/bearing/elevation math directly on marker coordinates with no separate scale factor. This differs from upstream SquadCalc, which uses a `pixelSize`/`mapToGameScale` indirection — don't reintroduce that unless there's a reason to.
 
-Ballistics assumes **flat terrain** (`heightDiff = 0`) since no heightmap data is bundled — elevation will be close to but not identical to in-game values on sloped ground.
+### Altitude / heightmaps
+
+Firing elevation accounts for terrain height difference ("Deducing Altitude", matching SquadCalc). Each map has a 500×500 grid of terrain heights in meters, bundled at `public/maps/<id>.height.json` by `npm run fetch-maps` (from SquadCalc's `heightmap.json`). [src/lib/heightmap.ts](src/lib/heightmap.ts) loads/caches a grid and `sampleHeight()` reads it; a coordinate in meters maps to a cell by `500 / mapSizeMeters` and out-of-bounds returns 0 — the exact sampling SquadCalc uses, so altitudes match. [src/hooks/useHeightmap.ts](src/hooks/useHeightmap.ts) loads the active map's grid (ignoring stale loads on map switch). `TargetMarker` computes `heightDiff = height(target) − height(mortar)` and passes it to `getElevation`. If a map has no heightmap the fetch 404s, `sampleHeight` returns 0, and elevation falls back to flat terrain.
 
 ### Data flow
 
@@ -40,7 +42,8 @@ Ballistics assumes **flat terrain** (`heightDiff = 0`) since no heightmap data i
 
 - [src/components/Layout.tsx](src/components/Layout.tsx) — top-level shell: sidebar + map area.
 - [src/components/MapSelector.tsx](src/components/MapSelector.tsx) — top-right map `<select>`; confirms before switching if the active session has marks (they'll be cleared).
-- [src/components/sidebar/](src/components/sidebar/) — `SessionList` + `SessionItem` (rename inline, delete, select, add).
+- [src/components/sidebar/](src/components/sidebar/) — `SessionList` + `SessionItem` (rename inline, delete, select, add, save-to-file, import-from-file). The rename `<input>` is deliberately narrow (`.session-item__name`, fixed width) so most of the row hits the outer `onClick` (select session) rather than the input; only clicking the input itself enters rename mode.
+- [src/lib/sessionFile.ts](src/lib/sessionFile.ts) — session ⇄ JSON file round-trip (`downloadSession`, `readSessionFile`/`parseSessionFile`). File format is `{ format: "squadcalc-session", version, name, mapId, mortar, targets }`; validated on import (unknown `mapId` falls back to the default map, malformed points are dropped) and imported as a brand-new session with fresh ids via `importSession` in the store.
 - [src/components/map/MapView.tsx](src/components/map/MapView.tsx) — the `MapContainer`; renders the image overlay, grid, and markers for the active session. `MapController` (inner component) handles click-to-place (mortar or target depending on `placementMode`) and re-fits bounds when the map changes.
 - [src/components/map/MapGrid.tsx](src/components/map/MapGrid.tsx) — draws the Squad keypad grid (300m major lines + 100m sub-lines, A/B/C... column and 1/2/3... row labels) for whichever map is active, matching SquadCalc's `squadGrid.js` scheme. Rendered into a dedicated Leaflet `Pane` (`zIndex: 450`) so it sits above the map image (400) but below markers (600).
 - [src/components/map/MortarMarker.tsx](src/components/map/MortarMarker.tsx) / [TargetMarker.tsx](src/components/map/TargetMarker.tsx) — draggable markers. Target markers compute their firing solution live (including during drag, via a `drag` event handler that patches the label DOM directly for performance) and show mil/bearing on the map plus a fuller popup with distance/elevation. Right-click removes a marker (mortar or target) via `contextmenu` handlers; `L.DomEvent.preventDefault` suppresses the native context menu.
@@ -49,4 +52,4 @@ Ballistics assumes **flat terrain** (`heightDiff = 0`) since no heightmap data i
 
 ### Map imagery
 
-Basemap `.webp` files are fetched from `https://squadcalc.app/api/img/maps/<id>/basemap.webp` by [scripts/fetch-maps.mjs](scripts/fetch-maps.mjs) into `public/maps/` (gitignored, © OWI/SquadCalc — see README credits). Run `npm run fetch-maps` after a fresh clone or `npm install`; the dev server will otherwise show broken map images.
+Basemap `.webp` images and `heightmap.json` files are fetched from `https://squadcalc.app/api/img/maps/<id>/` by [scripts/fetch-maps.mjs](scripts/fetch-maps.mjs) into `public/maps/` as `<id>.webp` and `<id>.height.json` (both gitignored, © OWI/SquadCalc — see README credits). Heights are rounded to 0.1m to roughly halve file size. Run `npm run fetch-maps` after a fresh clone or `npm install`; the dev server will otherwise show broken map images and fall back to flat-terrain elevation.

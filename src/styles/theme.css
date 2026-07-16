@@ -10,6 +10,8 @@
   --mortar: #3d7bff;
   --target: #e0473e;
   --danger: #b3433b;
+  --import-blue: #15335c;
+  --import-blue-2: #1e4270;
 
   --sidebar-w: 260px;
   --topbar-h: 52px;
@@ -117,14 +119,16 @@ button {
 }
 
 .session-item__name {
-  flex: 1;
+  flex: 0 0 72px;
+  width: 72px;
   background: transparent;
   border: none;
   color: var(--text);
   font-size: 13px;
   padding: 2px 4px;
   border-radius: 4px;
-  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .session-item__name:focus {
@@ -133,6 +137,12 @@ button {
 }
 
 .session-item__meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
   font-size: 10px;
   color: var(--text-dim);
 }
@@ -171,8 +181,27 @@ button {
   border-top: 1px solid var(--border);
 }
 
-.btn--block {
-  width: 100%;
+.sidebar__footer--row {
+  display: flex;
+  gap: 8px;
+}
+
+.sidebar__footer--row .btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
+  white-space: nowrap;
+}
+
+.btn--import {
+  background: var(--import-blue);
+}
+
+.btn--import:hover {
+  background: var(--import-blue-2);
 }
 
 /* ---------- Top bar (over map) ---------- */
