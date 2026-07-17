@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { DEFAULT_MAP_ID } from "../data/maps";
 import type { ImportedSession } from "../lib/sessionFile";
-import type { PlacementMode, Session, TargetMark, TargetTool } from "./types";
+import type { PlacementMode, Session, ShapeInput, TargetMark, TargetTool } from "./types";
 
 export const DEFAULT_SPACING = 15;
 export const MIN_SPACING = 5;
@@ -15,7 +15,7 @@ function uid(): string {
 }
 
 function makeSession(name: string, mapId = DEFAULT_MAP_ID): Session {
-  return { id: uid(), name, mapId, mortar: null, targets: [] };
+  return { id: uid(), name, mapId, mortar: null, targets: [], shapes: [] };
 }
 
 interface AppState {
@@ -50,6 +50,7 @@ interface AppState {
   moveMortar: (lat: number, lng: number) => void;
   clearMortar: () => void;
   removeTarget: (id: string) => void;
+  addShape: (shape: ShapeInput) => void;
   clearMarks: () => void;
 }
 
@@ -88,6 +89,7 @@ export const useAppStore = create<AppState>()(
               mapId: data.mapId,
               mortar: data.mortar,
               targets: data.targets.map((t) => ({ id: uid(), lat: t.lat, lng: t.lng })),
+              shapes: [],
             };
             return { sessions: [...state.sessions, session], activeSessionId: session.id };
           }),
@@ -185,9 +187,22 @@ export const useAppStore = create<AppState>()(
             })),
           })),
 
+        addShape: (shape) =>
+          set((state) => ({
+            sessions: updateActive(state, (s) => ({
+              ...s,
+              shapes: [...(s.shapes ?? []), { ...shape, id: uid() } as Session["shapes"][number]],
+            })),
+          })),
+
         clearMarks: () =>
           set((state) => ({
-            sessions: updateActive(state, (s) => ({ ...s, mortar: null, targets: [] })),
+            sessions: updateActive(state, (s) => ({
+              ...s,
+              mortar: null,
+              targets: [],
+              shapes: [],
+            })),
           })),
       };
     },

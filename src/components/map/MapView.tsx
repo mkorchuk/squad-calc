@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
-import { CRS } from "leaflet";
+import { useCallback, useEffect, useRef, useState } from "react";
+import L, { CRS } from "leaflet";
 import {
+  Circle,
   CircleMarker,
   ImageOverlay,
   MapContainer,
   Pane,
   Polygon,
   Polyline,
+  Rectangle,
   useMap,
   useMapEvents,
 } from "react-leaflet";
@@ -17,10 +19,13 @@ import { MAX_FILL_POINTS, pointsAlongLine, pointsInPolygon } from "../../lib/tar
 import type { Point } from "../../lib/targetFill";
 import { useHeightmap } from "../../hooks/useHeightmap";
 import { useAppStore } from "../../store/useAppStore";
+import type { ShapeInput, ShapeType } from "../../store/types";
 import MapGrid from "./MapGrid";
 import MapLoadingOverlay from "./MapLoadingOverlay";
 import MortarMarker from "./MortarMarker";
 import TargetMarker from "./TargetMarker";
+import ShapeLayer from "./ShapeLayer";
+import DrawMenu from "./DrawMenu";
 
 /**
  * True only once `active` has held for `delay` ms. Avoids flashing the loading
@@ -44,7 +49,28 @@ function useSettledActive(active: boolean, delay: number): boolean {
 /** Click radius, in screen pixels, for closing a Space polygon on its first vertex. */
 const CLOSE_PX = 12;
 
+/** A drag shorter than this (screen px) is treated as a mis-click, not a shape. */
+const MIN_DRAW_PX = 6;
+
 const DRAFT_STYLE = { color: "#e0603a", weight: 2, dashArray: "5 5" };
+
+const SHAPE_PREVIEW = {
+  color: "#f0c040",
+  weight: 2,
+  dashArray: "5 5",
+  fillColor: "#f0c040",
+  fillOpacity: 0.05,
+  interactive: false,
+};
+
+function radiusBetween(a: Point, b: Point): number {
+  return Math.hypot(b.lat - a.lat, b.lng - a.lng);
+}
+
+function buildShape(type: ShapeType, start: Point, end: Point): ShapeInput {
+  if (type === "circle") return { type: "circle", center: start, radius: radiusBetween(start, end) };
+  return { type, a: start, b: end };
+}
 
 /**
  * Handles map click placement and re-fitting bounds when the map changes.
@@ -53,7 +79,15 @@ const DRAFT_STYLE = { color: "#e0603a", weight: 2, dashArray: "5 5" };
  * in MapView: it follows the cursor on every mousemove, and re-rendering the
  * target markers at that rate is far too expensive.
  */
-function MapController({ mapId }: { mapId: string }) {
+interface MapControllerProps {
+  mapId: string;
+  /** The shape tool armed from the right-click menu, or null when placing targets. */
+  armed: ShapeType | null;
+  onOpenMenu: (clientX: number, clientY: number) => void;
+  onFinishArmed: () => void;
+}
+
+function MapController({ mapId, armed, onOpenMenu, onFinishArmed }: MapControllerProps) {
   const map = useMap();
   const placementMode = useAppStore((s) => s.placementMode);
   const tool = useAppStore((s) => s.targetTool);
@@ -62,14 +96,36 @@ function MapController({ mapId }: { mapId: string }) {
   const setMortar = useAppStore((s) => s.setMortar);
   const addTarget = useAppStore((s) => s.addTarget);
   const addTargets = useAppStore((s) => s.addTargets);
+  const addShape = useAppStore((s) => s.addShape);
 
   const [draft, setDraft] = useState<Point[]>([]);
   const [cursor, setCursor] = useState<Point | null>(null);
+
+  // The shape currently being dragged out (start = mousedown, end = current cursor).
+  const [drawStart, setDrawStart] = useState<Point | null>(null);
+  const [drawEnd, setDrawEnd] = useState<Point | null>(null);
+  // mouseup fires a trailing click; this suppresses it so a draw doesn't also place a target.
+  const suppressClick = useRef(false);
 
   const resetDraft = useCallback(() => {
     setDraft([]);
     setCursor(null);
   }, []);
+
+  // While a shape tool is armed, left-drag must draw, not pan the map.
+  useEffect(() => {
+    if (armed) {
+      map.dragging.disable();
+      resetDraft();
+    } else {
+      map.dragging.enable();
+      setDrawStart(null);
+      setDrawEnd(null);
+    }
+    return () => {
+      map.dragging.enable();
+    };
+  }, [armed, map, resetDraft]);
 
   useEffect(() => {
     const bounds = latLngBoundsFor(getMap(mapId));
@@ -116,7 +172,37 @@ function MapController({ mapId }: { mapId: string }) {
   );
 
   useMapEvents({
+    contextmenu(e) {
+      const oe = e.originalEvent;
+      L.DomEvent.preventDefault(oe);
+      // Right-clicking a marker keeps its own remove behavior; don't open the menu there.
+      const el = oe.target as HTMLElement | null;
+      if (el && el.closest(".leaflet-marker-icon")) return;
+      onOpenMenu(oe.clientX, oe.clientY);
+    },
+    mousedown(e) {
+      if (!armed) return;
+      L.DomEvent.preventDefault(e.originalEvent);
+      const p: Point = { lat: e.latlng.lat, lng: e.latlng.lng };
+      setDrawStart(p);
+      setDrawEnd(p);
+    },
+    mouseup(e) {
+      if (!armed || !drawStart) return;
+      const end: Point = { lat: e.latlng.lat, lng: e.latlng.lng };
+      const startPx = map.latLngToContainerPoint([drawStart.lat, drawStart.lng]);
+      const endPx = map.latLngToContainerPoint([end.lat, end.lng]);
+      if (startPx.distanceTo(endPx) >= MIN_DRAW_PX) addShape(buildShape(armed, drawStart, end));
+      suppressClick.current = true;
+      onFinishArmed();
+    },
     click(e) {
+      if (suppressClick.current) {
+        suppressClick.current = false;
+        return;
+      }
+      if (armed) return;
+
       const p: Point = { lat: e.latlng.lat, lng: e.latlng.lng };
 
       if (placementMode === "mortar") {
@@ -143,11 +229,44 @@ function MapController({ mapId }: { mapId: string }) {
       }
     },
     mousemove(e) {
-      if (draft.length) setCursor({ lat: e.latlng.lat, lng: e.latlng.lng });
+      const p: Point = { lat: e.latlng.lat, lng: e.latlng.lng };
+      if (armed && drawStart) setDrawEnd(p);
+      else if (draft.length) setCursor(p);
     },
   });
 
-  if (!draft.length) return null;
+  const drawingPreview =
+    armed && drawStart && drawEnd ? (
+      <Pane name="shape-preview" style={{ zIndex: 461, pointerEvents: "none" }}>
+        {armed === "line" && (
+          <Polyline
+            positions={[
+              [drawStart.lat, drawStart.lng],
+              [drawEnd.lat, drawEnd.lng],
+            ]}
+            pathOptions={SHAPE_PREVIEW}
+          />
+        )}
+        {armed === "rect" && (
+          <Rectangle
+            bounds={[
+              [drawStart.lat, drawStart.lng],
+              [drawEnd.lat, drawEnd.lng],
+            ]}
+            pathOptions={SHAPE_PREVIEW}
+          />
+        )}
+        {armed === "circle" && (
+          <Circle
+            center={[drawStart.lat, drawStart.lng]}
+            radius={radiusBetween(drawStart, drawEnd)}
+            pathOptions={SHAPE_PREVIEW}
+          />
+        )}
+      </Pane>
+    ) : null;
+
+  if (!draft.length) return drawingPreview;
 
   const path = cursor ? [...draft, cursor] : draft;
   const latLngs = path.map((p) => [p.lat, p.lng] as [number, number]);
@@ -156,24 +275,27 @@ function MapController({ mapId }: { mapId: string }) {
   // clicks (including the one closing a polygon on its first vertex) must reach
   // the map's own click handler.
   return (
-    <Pane name="draft" style={{ zIndex: 460, pointerEvents: "none" }}>
-      {tool === "space" && draft.length >= 2 ? (
-        <Polygon
-          positions={latLngs}
-          pathOptions={{ ...DRAFT_STYLE, fillOpacity: 0.1, interactive: false }}
-        />
-      ) : (
-        <Polyline positions={latLngs} pathOptions={{ ...DRAFT_STYLE, interactive: false }} />
-      )}
-      {draft.map((v, i) => (
-        <CircleMarker
-          key={i}
-          center={[v.lat, v.lng]}
-          radius={4}
-          pathOptions={{ color: DRAFT_STYLE.color, fillOpacity: 1, interactive: false }}
-        />
-      ))}
-    </Pane>
+    <>
+      {drawingPreview}
+      <Pane name="draft" style={{ zIndex: 460, pointerEvents: "none" }}>
+        {tool === "space" && draft.length >= 2 ? (
+          <Polygon
+            positions={latLngs}
+            pathOptions={{ ...DRAFT_STYLE, fillOpacity: 0.1, interactive: false }}
+          />
+        ) : (
+          <Polyline positions={latLngs} pathOptions={{ ...DRAFT_STYLE, interactive: false }} />
+        )}
+        {draft.map((v, i) => (
+          <CircleMarker
+            key={i}
+            center={[v.lat, v.lng]}
+            radius={4}
+            pathOptions={{ color: DRAFT_STYLE.color, fillOpacity: 1, interactive: false }}
+          />
+        ))}
+      </Pane>
+    </>
   );
 }
 
@@ -181,6 +303,21 @@ export default function MapView() {
   const session = useAppStore((s) => s.getActiveSession());
   const map = getMap(session?.mapId ?? "");
   const heightmap = useHeightmap(map.id);
+
+  // Right-click draw menu position (viewport coords) and the armed shape tool.
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [armed, setArmed] = useState<ShapeType | null>(null);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setMenu(null);
+        setArmed(null);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const [imageLoaded, setImageLoaded] = useState(false);
   useEffect(() => setImageLoaded(false), [map.id]);
@@ -216,7 +353,12 @@ export default function MapView() {
         bounds={boundsFor(map)}
         style={{ height: "100%", width: "100%" }}
       >
-        <MapController mapId={map.id} />
+        <MapController
+          mapId={map.id}
+          armed={armed}
+          onOpenMenu={(x, y) => setMenu({ x, y })}
+          onFinishArmed={() => setArmed(null)}
+        />
         <ImageOverlay
           key={map.id}
           url={map.image}
@@ -227,6 +369,12 @@ export default function MapView() {
           }}
         />
         <MapGrid map={map} />
+
+        <Pane name="shapes" style={{ zIndex: 455, pointerEvents: "none" }}>
+          {(session?.shapes ?? []).map((shape) => (
+            <ShapeLayer key={shape.id} shape={shape} />
+          ))}
+        </Pane>
 
         {session?.mortar && (
           <MortarMarker mortar={session.mortar} map={map} heightmap={heightmap} />
@@ -243,6 +391,17 @@ export default function MapView() {
         ))}
       </MapContainer>
       <MapLoadingOverlay visible={showLoading} mapName={map.name} />
+      {menu && (
+        <DrawMenu
+          x={menu.x}
+          y={menu.y}
+          onPick={(type) => {
+            setArmed(type);
+            setMenu(null);
+          }}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </>
   );
 }
