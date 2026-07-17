@@ -5,11 +5,13 @@ import MapView from "./map/MapView";
 import PlacementToolbar from "./map/PlacementToolbar";
 import { ChevronIcon } from "./icons";
 import { useAppStore } from "../store/useAppStore";
+import { useStreamPublisher } from "../hooks/useStreamPublisher";
 import { APP_VERSION } from "../version";
 
 export default function Layout() {
   const sidebarVisible = useAppStore((s) => s.sidebarVisible);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  useStreamPublisher();
 
   return (
     <div className={`app ${sidebarVisible ? "" : "app--sidebar-hidden"}`}>

@@ -1,4 +1,5 @@
 import { useAppStore } from "../../store/useAppStore";
+import StreamButton from "../StreamButton";
 
 export default function PlacementToolbar() {
   const mode = useAppStore((s) => s.placementMode);
@@ -34,6 +35,7 @@ export default function PlacementToolbar() {
       >
         Clear
       </button>
+      <StreamButton />
     </div>
   );
 }

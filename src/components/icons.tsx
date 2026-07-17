@@ -97,6 +97,27 @@ export function ChevronIcon({ size = 13 }: IconProps) {
   );
 }
 
+export function StreamIcon({ size = 13 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+      <path d="M7.8 16.2a6 6 0 0 1 0-8.4" />
+      <path d="M16.2 7.8a6 6 0 0 1 0 8.4" />
+      <path d="M4.9 19.1a10 10 0 0 1 0-14.2" />
+      <path d="M19.1 4.9a10 10 0 0 1 0 14.2" />
+    </svg>
+  );
+}
+
 export function ImportIcon({ size = 14 }: IconProps) {
   return (
     <svg
