@@ -44,6 +44,8 @@ export default function ToolPanel() {
   const setTool = useAppStore((s) => s.setTargetTool);
   const spacing = useAppStore((s) => s.spacing);
   const setSpacing = useAppStore((s) => s.setSpacing);
+  const gridOpacity = useAppStore((s) => s.gridOpacity);
+  const setGridOpacity = useAppStore((s) => s.setGridOpacity);
 
   // The field holds raw text while typing: clamping every keystroke would rewrite
   // the first digit of anything under the minimum ("2" of "20" -> "5").
@@ -104,6 +106,21 @@ export default function ToolPanel() {
       </label>
 
       <p className="tool-hint">{TOOLS.find((t) => t.tool === tool)?.hint}</p>
+
+      <div className="sidebar__section-label">Map grid</div>
+      <label className="tool-slider">
+        <span className="tool-slider__label">Opacity</span>
+        <input
+          className="tool-slider__input"
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={gridOpacity}
+          onChange={(e) => setGridOpacity(Number(e.target.value))}
+        />
+        <span className="tool-slider__value">{Math.round(gridOpacity * 100)}%</span>
+      </label>
     </>
   );
 }

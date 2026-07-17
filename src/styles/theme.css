@@ -52,6 +52,10 @@ button {
   height: 100%;
 }
 
+.app--sidebar-hidden {
+  grid-template-columns: 1fr;
+}
+
 .map-area {
   position: relative;
   height: 100%;
@@ -72,11 +76,71 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
+.sidebar__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .sidebar__title {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.3px;
+}
+
+.sidebar__version {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.sidebar__toggle-tools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+}
+
+.sidebar__toggle-tools:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.sidebar__toggle-tools svg {
+  transform: rotate(90deg);
+}
+
+.sidebar-show-btn {
+  position: absolute;
+  top: 58px;
+  left: 12px;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+}
+
+.sidebar-show-btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.sidebar-show-btn svg {
+  transform: rotate(-90deg);
 }
 
 .sidebar__subtitle {
@@ -193,7 +257,6 @@ button {
 
 .sidebar__footer {
   padding: 10px 12px;
-  border-top: 1px solid var(--border);
 }
 
 .sidebar__footer--row {
@@ -330,6 +393,55 @@ button {
   color: var(--text-dim);
 }
 
+.tool-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.tool-slider__label {
+  flex: 0 0 auto;
+}
+
+.tool-slider__value {
+  flex: 0 0 34px;
+  text-align: right;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-slider__input {
+  flex: 1;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  outline: none;
+}
+
+.tool-slider__input::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  border: none;
+  cursor: pointer;
+}
+
+.tool-slider__input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  border: none;
+  cursor: pointer;
+}
+
 /* ---------- Placement toolbar ---------- */
 .toolbar {
   position: absolute;
@@ -440,8 +552,13 @@ button {
   outline: none;
 }
 
-/* Crosshair cursor over the map to signal placement (replaces the grab hand) */
+/* Crosshair cursor over the map to signal placement (replaces the grab hand).
+   Non-interactive vector layers (e.g. the mortar range circle) would otherwise
+   inherit a grab/hand cursor from Leaflet's own stylesheet depending on load
+   order, so the SVG/path elements are targeted explicitly, not left to inherit. */
 .leaflet-container,
+.leaflet-container svg,
+.leaflet-container path,
 .leaflet-grab,
 .leaflet-dragging .leaflet-grab {
   cursor: crosshair;

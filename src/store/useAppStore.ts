@@ -8,6 +8,8 @@ export const DEFAULT_SPACING = 15;
 export const MIN_SPACING = 5;
 export const MAX_SPACING = 200;
 
+export const DEFAULT_GRID_OPACITY = 1;
+
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -20,9 +22,11 @@ interface AppState {
   sessions: Session[];
   activeSessionId: string | null;
   placementMode: PlacementMode;
-  /** Placement-time settings, not part of a session's saved data. */
+  /** Placement-time and display settings, not part of a session's saved data. */
   targetTool: TargetTool;
   spacing: number;
+  gridOpacity: number;
+  sidebarVisible: boolean;
 
   getActiveSession: () => Session | undefined;
 
@@ -36,6 +40,8 @@ interface AppState {
   setPlacementMode: (mode: PlacementMode) => void;
   setTargetTool: (tool: TargetTool) => void;
   setSpacing: (spacing: number) => void;
+  setGridOpacity: (opacity: number) => void;
+  toggleSidebar: () => void;
 
   setMortar: (lat: number, lng: number) => void;
   addTarget: (lat: number, lng: number) => void;
@@ -62,6 +68,8 @@ export const useAppStore = create<AppState>()(
         placementMode: "target",
         targetTool: "single",
         spacing: DEFAULT_SPACING,
+        gridOpacity: DEFAULT_GRID_OPACITY,
+        sidebarVisible: true,
 
         getActiveSession: () =>
           get().sessions.find((s) => s.id === get().activeSessionId),
@@ -121,6 +129,11 @@ export const useAppStore = create<AppState>()(
           set({
             spacing: Math.min(MAX_SPACING, Math.max(MIN_SPACING, Math.round(spacing))),
           }),
+
+        setGridOpacity: (opacity) =>
+          set({ gridOpacity: Math.min(1, Math.max(0, opacity)) }),
+
+        toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
 
         setMortar: (lat, lng) =>
           set((state) => ({
