@@ -1,13 +1,28 @@
 import { useMemo, useRef } from "react";
-import { Marker, Popup } from "react-leaflet";
+import { Marker, Polygon, Popup } from "react-leaflet";
 import L, { type Marker as LeafletMarker } from "leaflet";
 import { useAppStore } from "../../store/useAppStore";
 import type { MortarMark, TargetMark } from "../../store/types";
 import type { MapDefinition } from "../../data/maps";
 import { STANDARD_MORTAR } from "../../data/weapons";
-import { getBearing, getDistance, getElevation } from "../../lib/ballistics";
+import {
+  getBearing,
+  getDistance,
+  getElevation,
+  getSpread,
+  spreadEllipse,
+} from "../../lib/ballistics";
 import { sampleHeight, type HeightGrid } from "../../lib/heightmap";
 import { targetIcon } from "./markerIcons";
+
+/** Dispersion ellipse styling — a translucent red area, matching SquadCalc's spread markers. */
+const SPREAD_STYLE = {
+  color: "#ff3b3b",
+  weight: 1.3,
+  fillColor: "#ff3b3b",
+  fillOpacity: 0.15,
+  interactive: false,
+};
 
 interface Props {
   target: TargetMark;
@@ -20,7 +35,9 @@ interface Props {
 export default function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
   const moveTarget = useAppStore((s) => s.moveTarget);
   const removeTarget = useAppStore((s) => s.removeTarget);
+  const showSpread = useAppStore((s) => s.showSpread);
   const ref = useRef<LeafletMarker>(null);
+  const spreadRef = useRef<L.Polygon>(null);
 
   const solution = useMemo(() => {
     if (!mortar) return null;
@@ -30,7 +47,8 @@ export default function TargetMarker({ target, index, mortar, map, heightmap }: 
     const targetAlt = sampleHeight(heightmap, map, target.lat, target.lng);
     const heightDiff = targetAlt - mortarAlt;
     const elevation = getElevation(distance, STANDARD_MORTAR, heightDiff);
-    return { distance, bearing, elevation, mortarAlt, targetAlt, heightDiff };
+    const spread = getSpread(distance, STANDARD_MORTAR, heightDiff);
+    return { distance, bearing, elevation, spread, mortarAlt, targetAlt, heightDiff };
   }, [mortar, target, heightmap, map]);
 
   const icon = useMemo(
@@ -55,11 +73,25 @@ export default function TargetMarker({ target, index, mortar, map, heightmap }: 
           sampleHeight(heightmap, map, mortar.lat, mortar.lng);
         const elevation = getElevation(distance, STANDARD_MORTAR, heightDiff);
         const el = m.getElement();
-        if (!el) return;
-        const milEl = el.querySelector(".target-marker__mil");
-        const brgEl = el.querySelector(".target-marker__bearing");
-        if (milEl) milEl.textContent = elevation.inRange ? String(Math.round(elevation.mil)) : "∞";
-        if (brgEl) brgEl.textContent = `${bearing.toFixed(1)}°`;
+        if (el) {
+          const milEl = el.querySelector(".target-marker__mil");
+          const brgEl = el.querySelector(".target-marker__bearing");
+          if (milEl) {
+            milEl.textContent = elevation.inRange ? String(Math.round(elevation.mil)) : "∞";
+          }
+          if (brgEl) brgEl.textContent = `${bearing.toFixed(1)}°`;
+        }
+
+        const spreadLayer = spreadRef.current;
+        if (spreadLayer) {
+          const spread = getSpread(distance, STANDARD_MORTAR, heightDiff);
+          if (spread) {
+            spreadLayer.setLatLngs(spreadEllipse(pos, spread, bearing));
+            spreadLayer.setStyle(SPREAD_STYLE);
+          } else {
+            spreadLayer.setStyle({ opacity: 0, fillOpacity: 0 });
+          }
+        }
       },
       dragend() {
         const m = ref.current;
@@ -76,13 +108,22 @@ export default function TargetMarker({ target, index, mortar, map, heightmap }: 
   );
 
   return (
-    <Marker
-      ref={ref}
-      position={[target.lat, target.lng]}
-      icon={icon}
-      draggable
-      eventHandlers={handlers}
-    >
+    <>
+      {showSpread && solution?.spread && (
+        <Polygon
+          ref={spreadRef}
+          positions={spreadEllipse(target, solution.spread, solution.bearing)}
+          pane="spread"
+          pathOptions={SPREAD_STYLE}
+        />
+      )}
+      <Marker
+        ref={ref}
+        position={[target.lat, target.lng]}
+        icon={icon}
+        draggable
+        eventHandlers={handlers}
+      >
       <Popup>
         <div className="readout__title">Target {index}</div>
 
@@ -117,6 +158,15 @@ export default function TargetMarker({ target, index, mortar, map, heightmap }: 
                 {solution.heightDiff.toFixed(0)} m)
               </span>
             </div>
+            {solution.spread && (
+              <div className="readout__row">
+                <span className="readout__label">Spread</span>
+                <span className="readout__value">
+                  {Math.round(solution.spread.semiMinor / 2)} m down-range ·{" "}
+                  {Math.round(solution.spread.semiMajor / 2)} m lateral
+                </span>
+              </div>
+            )}
           </>
         )}
 
@@ -125,7 +175,8 @@ export default function TargetMarker({ target, index, mortar, map, heightmap }: 
             Remove target
           </button>
         </div>
-      </Popup>
-    </Marker>
+        </Popup>
+      </Marker>
+    </>
   );
 }

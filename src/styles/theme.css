@@ -541,6 +541,62 @@ button {
   background: var(--target);
 }
 
+.tool-divider {
+  height: 1px;
+  margin: 14px 0 0;
+  background: var(--border);
+}
+
+.tool-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 12px 0;
+  padding: 9px 10px;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.tool-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent-2);
+}
+
+.tool-toggle--active {
+  background: var(--accent);
+  border-color: var(--accent-2);
+  color: #fff;
+}
+
+.tool-toggle__dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #ff3b3b;
+  background: transparent;
+}
+
+.tool-toggle--active .tool-toggle__dot {
+  background: #ff3b3b;
+}
+
+.tool-toggle__label {
+  flex: 1;
+  text-align: left;
+  font-weight: 600;
+}
+
+.tool-toggle__state {
+  font-size: 11px;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
 .toolbar__clear {
   border-left: 1px solid var(--border);
 }

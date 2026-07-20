@@ -81,3 +81,96 @@ export function getElevation(
 
   return { deg, mil: deg * MIL_PER_DEGREE, inRange: true };
 }
+
+export interface Spread {
+  /** Lateral dispersion length, in meters (SquadCalc's semiMajorAxis / horizontal spread). */
+  semiMajor: number;
+  /** Down-range dispersion length, in meters (SquadCalc's semiMinorAxis / vertical spread). */
+  semiMinor: number;
+  /** Radius of a circle bounding the whole footprint = max(semiMajor, semiMinor) / 2. */
+  radius: number;
+}
+
+/**
+ * Time of flight (seconds) for the high-angle shot, matching SquadCalc's
+ * `getTimeOfFlight`. Falls back to a flat-terrain approximation when the height
+ * term makes the root imaginary.
+ */
+function getTimeOfFlight(v: number, g: number, angleRad: number, heightDiff: number): number {
+  const vy = v * Math.sin(angleRad);
+  let t = vy + Math.sqrt(vy ** 2 + 2 * g * -heightDiff);
+  if (Number.isNaN(t)) t = vy + Math.sqrt(vy ** 2);
+  return t / g;
+}
+
+/**
+ * Dispersion ellipse axes for the high-angle firing solution, ported from the
+ * deployed SquadCalc's `SquadFiringSolution` (getHorizontalSpread /
+ * getVerticalSpread). The in-game scatter forms an ellipse tilted to the firing
+ * line, with both axes depending on the firing angle (and thus distance):
+ *
+ *  - Lateral (semiMajor): the MOA cone's horizontal velocity component carried
+ *    over the whole time of flight, `sin(moaRad) · v · tof`. Large and nearly
+ *    flat across range (~32–36 m for the mortar).
+ *  - Down-range (semiMinor): difference in flat range between the cone's upper
+ *    and lower edges (θ ± moa/2), via the range equation `v²·sin(2θ)/g`. Large
+ *    for near/steep shots and collapses toward max range as θ → 45°.
+ *
+ * NB: this follows the shipped SquadCalc code, which differs from its
+ * "Deducing Spread" wiki (the wiki derives the lateral axis from trajectory arc
+ * length instead). Returns both axes plus a bounding-circle `radius`, or null
+ * when there is no valid firing solution (same gating as getElevation).
+ */
+export function getSpread(distance: number, weapon: Weapon, heightDiff = 0): Spread | null {
+  const elevation = getElevation(distance, weapon, heightDiff);
+  if (!elevation.inRange) return null;
+
+  const { velocity: v, gravity: g, moa } = weapon;
+  const angleRad = (elevation.deg * Math.PI) / 180;
+  const moaRad = ((moa / 60) * Math.PI) / 180; // MOA -> degrees -> radians (full cone)
+
+  // Lateral spread: horizontal velocity from the cone half-angle, over the flight.
+  const tof = getTimeOfFlight(v, g, angleRad, heightDiff);
+  const semiMajor = Math.max(0, Math.sin(moaRad) * v * tof);
+
+  // Down-range spread: difference in flat range between the cone's upper and
+  // lower edges (angle ± moa/2).
+  const upper = (v ** 2 * Math.sin(2 * (angleRad + moaRad / 2))) / g;
+  const lower = (v ** 2 * Math.sin(2 * (angleRad - moaRad / 2))) / g;
+  const semiMinor = Math.max(0, Math.abs(lower - upper));
+
+  return { semiMajor, semiMinor, radius: Math.max(semiMajor, semiMinor) / 2 };
+}
+
+/**
+ * Polygon approximation of the dispersion ellipse for drawing on the map, as an
+ * array of [lat, lng] pairs. The ellipse is centred on the target and oriented to
+ * the firing line: its down-range half-axis (`semiMinor / 2`) points along the
+ * bearing, its lateral half-axis (`semiMajor / 2`) across it — matching SquadCalc,
+ * which tilts the spread ellipse by the firing bearing. Coordinates are in meters
+ * (1 Leaflet unit = 1 meter), with lng = east and lat increasing north.
+ */
+export function spreadEllipse(
+  center: Point,
+  spread: Spread,
+  bearingDeg: number,
+  segments = 48
+): [number, number][] {
+  const brg = (bearingDeg * Math.PI) / 180;
+  const sinB = Math.sin(brg);
+  const cosB = Math.cos(brg);
+  const alongHalf = spread.semiMinor / 2; // down-range extent (along the bearing)
+  const acrossHalf = spread.semiMajor / 2; // lateral extent (perpendicular)
+
+  const ring: [number, number][] = [];
+  for (let i = 0; i < segments; i++) {
+    const t = (i / segments) * 2 * Math.PI;
+    const along = alongHalf * Math.cos(t);
+    const across = acrossHalf * Math.sin(t);
+    // Down-range unit vector is (sinB, cosB) in (lng, lat); lateral is (cosB, -sinB).
+    const lng = center.lng + along * sinB + across * cosB;
+    const lat = center.lat + along * cosB - across * sinB;
+    ring.push([lat, lng]);
+  }
+  return ring;
+}

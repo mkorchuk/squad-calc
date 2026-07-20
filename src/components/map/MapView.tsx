@@ -13,8 +13,11 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import { getMap } from "../../data/maps";
+import type { MapDefinition } from "../../data/maps";
+import { STANDARD_MORTAR } from "../../data/weapons";
+import { getDistance, getSpread } from "../../lib/ballistics";
 import { boundsFor, latLngBoundsFor } from "../../lib/mapBounds";
-import { loadHeightmap } from "../../lib/heightmap";
+import { loadHeightmap, sampleHeight, type HeightGrid } from "../../lib/heightmap";
 import { MAX_FILL_POINTS, pointsAlongLine, pointsInPolygon } from "../../lib/targetFill";
 import type { Point } from "../../lib/targetFill";
 import { useHeightmap } from "../../hooks/useHeightmap";
@@ -81,18 +84,30 @@ function buildShape(type: ShapeType, start: Point, end: Point): ShapeInput {
  */
 interface MapControllerProps {
   mapId: string;
+  /** The active map's definition and heightmap, needed to size the Space tool's
+   * spread-radius-based spacing (see `spaceSpacing` below). */
+  mapDef: MapDefinition;
+  heightmap: HeightGrid | null;
   /** The shape tool armed from the right-click menu, or null when placing targets. */
   armed: ShapeType | null;
   onOpenMenu: (clientX: number, clientY: number) => void;
   onFinishArmed: () => void;
 }
 
-function MapController({ mapId, armed, onOpenMenu, onFinishArmed }: MapControllerProps) {
+function MapController({
+  mapId,
+  mapDef,
+  heightmap,
+  armed,
+  onOpenMenu,
+  onFinishArmed,
+}: MapControllerProps) {
   const map = useMap();
   const placementMode = useAppStore((s) => s.placementMode);
   const tool = useAppStore((s) => s.targetTool);
   const spacing = useAppStore((s) => s.spacing);
   const activeSessionId = useAppStore((s) => s.activeSessionId);
+  const mortar = useAppStore((s) => s.getActiveSession()?.mortar ?? null);
   const setMortar = useAppStore((s) => s.setMortar);
   const addTarget = useAppStore((s) => s.addTarget);
   const addTargets = useAppStore((s) => s.addTargets);
@@ -171,6 +186,31 @@ function MapController({ mapId, armed, onOpenMenu, onFinishArmed }: MapControlle
     [draft, map]
   );
 
+  /**
+   * Spacing for the Space tool: sized from the mortar's spread (dispersion)
+   * radius at the drawn area's centroid, rather than the manual spacing value,
+   * so placed targets' footprints tile to cover the area with no gaps. Uses the
+   * standard hexagonal-covering spacing (radius * sqrt(3)) between centers.
+   * Falls back to the manual spacing when there's no mortar or the centroid is
+   * out of firing range.
+   */
+  const spaceSpacing = useCallback(
+    (vertices: Point[]): number => {
+      if (!mortar || !vertices.length) return spacing;
+      const centroid = {
+        lat: vertices.reduce((sum, v) => sum + v.lat, 0) / vertices.length,
+        lng: vertices.reduce((sum, v) => sum + v.lng, 0) / vertices.length,
+      };
+      const distance = getDistance(mortar, centroid);
+      const heightDiff =
+        sampleHeight(heightmap, mapDef, centroid.lat, centroid.lng) -
+        sampleHeight(heightmap, mapDef, mortar.lat, mortar.lng);
+      const spread = getSpread(distance, STANDARD_MORTAR, heightDiff);
+      return spread ? spread.radius * Math.sqrt(3) : spacing;
+    },
+    [mortar, mapDef, heightmap, spacing]
+  );
+
   useMapEvents({
     contextmenu(e) {
       const oe = e.originalEvent;
@@ -223,7 +263,7 @@ function MapController({ mapId, armed, onOpenMenu, onFinishArmed }: MapControlle
 
       // Space: collect corners until the click lands back on the first one.
       if (draft.length >= 3 && isNearFirstVertex(p)) {
-        commit(pointsInPolygon(draft, spacing));
+        commit(pointsInPolygon(draft, spaceSpacing(draft)));
       } else {
         setDraft([...draft, p]);
       }
@@ -355,6 +395,8 @@ export default function MapView() {
       >
         <MapController
           mapId={map.id}
+          mapDef={map}
+          heightmap={heightmap}
           armed={armed}
           onOpenMenu={(x, y) => setMenu({ x, y })}
           onFinishArmed={() => setArmed(null)}
@@ -375,6 +417,10 @@ export default function MapView() {
             <ShapeLayer key={shape.id} shape={shape} />
           ))}
         </Pane>
+
+        {/* Spread circles sit above the map/grid but below markers, and never
+            intercept clicks meant for target placement. */}
+        <Pane name="spread" style={{ zIndex: 452, pointerEvents: "none" }} />
 
         {session?.mortar && (
           <MortarMarker mortar={session.mortar} map={map} heightmap={heightmap} />

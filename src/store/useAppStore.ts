@@ -26,6 +26,8 @@ interface AppState {
   targetTool: TargetTool;
   spacing: number;
   gridOpacity: number;
+  /** Whether to draw the mortar spread (dispersion) circle around each target. */
+  showSpread: boolean;
   sidebarVisible: boolean;
 
   getActiveSession: () => Session | undefined;
@@ -41,6 +43,7 @@ interface AppState {
   setTargetTool: (tool: TargetTool) => void;
   setSpacing: (spacing: number) => void;
   setGridOpacity: (opacity: number) => void;
+  toggleSpread: () => void;
   toggleSidebar: () => void;
 
   setMortar: (lat: number, lng: number) => void;
@@ -70,6 +73,7 @@ export const useAppStore = create<AppState>()(
         targetTool: "single",
         spacing: DEFAULT_SPACING,
         gridOpacity: DEFAULT_GRID_OPACITY,
+        showSpread: false,
         sidebarVisible: true,
 
         getActiveSession: () =>
@@ -134,6 +138,8 @@ export const useAppStore = create<AppState>()(
 
         setGridOpacity: (opacity) =>
           set({ gridOpacity: Math.min(1, Math.max(0, opacity)) }),
+
+        toggleSpread: () => set((state) => ({ showSpread: !state.showSpread })),
 
         toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
 

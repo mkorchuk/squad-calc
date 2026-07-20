@@ -46,6 +46,8 @@ export default function ToolPanel() {
   const setSpacing = useAppStore((s) => s.setSpacing);
   const gridOpacity = useAppStore((s) => s.gridOpacity);
   const setGridOpacity = useAppStore((s) => s.setGridOpacity);
+  const showSpread = useAppStore((s) => s.showSpread);
+  const toggleSpread = useAppStore((s) => s.toggleSpread);
 
   // The field holds raw text while typing: clamping every keystroke would rewrite
   // the first digit of anything under the minimum ("2" of "20" -> "5").
@@ -100,12 +102,29 @@ export default function ToolPanel() {
           onKeyDown={(e) => {
             if (e.key === "Enter") e.currentTarget.blur();
           }}
-          disabled={tool === "single"}
+          disabled={tool === "single" || tool === "space"}
         />
         <span className="tool-spacing__unit">m</span>
       </label>
 
-      <p className="tool-hint">{TOOLS.find((t) => t.tool === tool)?.hint}</p>
+      <p className="tool-hint">
+        {TOOLS.find((t) => t.tool === tool)?.hint}
+        {tool === "space" &&
+          " Spacing is sized automatically from the mortar's spread radius, so targets tile to cover the area."}
+      </p>
+
+      <div className="tool-divider" />
+
+      <button
+        className={`tool-toggle ${showSpread ? "tool-toggle--active" : ""}`}
+        onClick={toggleSpread}
+        title="Draw the mortar spread (dispersion) circle around each target"
+        aria-pressed={showSpread}
+      >
+        <span className="tool-toggle__dot" />
+        <span className="tool-toggle__label">Spread radius</span>
+        <span className="tool-toggle__state">{showSpread ? "On" : "Off"}</span>
+      </button>
 
       <div className="sidebar__section-label">Map grid</div>
       <label className="tool-slider">
