@@ -1,5 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { MAX_SPACING, MIN_SPACING, useAppStore } from "../../store/useAppStore";
+import {
+  MAX_LABEL_SCALE,
+  MAX_SPACING,
+  MIN_LABEL_SCALE,
+  MIN_SPACING,
+  useAppStore,
+} from "../../store/useAppStore";
 import type { TargetTool } from "../../store/types";
 import { LineIcon, SingleIcon, SpaceIcon } from "../icons";
 
@@ -46,6 +52,8 @@ export default function ToolPanel() {
   const setSpacing = useAppStore((s) => s.setSpacing);
   const gridOpacity = useAppStore((s) => s.gridOpacity);
   const setGridOpacity = useAppStore((s) => s.setGridOpacity);
+  const labelScale = useAppStore((s) => s.labelScale);
+  const setLabelScale = useAppStore((s) => s.setLabelScale);
   const showSpread = useAppStore((s) => s.showSpread);
   const toggleSpread = useAppStore((s) => s.toggleSpread);
 
@@ -139,6 +147,21 @@ export default function ToolPanel() {
           onChange={(e) => setGridOpacity(Number(e.target.value))}
         />
         <span className="tool-slider__value">{Math.round(gridOpacity * 100)}%</span>
+      </label>
+
+      <div className="sidebar__section-label">Target labels</div>
+      <label className="tool-slider">
+        <span className="tool-slider__label">Font size</span>
+        <input
+          className="tool-slider__input"
+          type="range"
+          min={MIN_LABEL_SCALE}
+          max={MAX_LABEL_SCALE}
+          step={0.05}
+          value={labelScale}
+          onChange={(e) => setLabelScale(Number(e.target.value))}
+        />
+        <span className="tool-slider__value">{Math.round(labelScale * 100)}%</span>
       </label>
     </>
   );

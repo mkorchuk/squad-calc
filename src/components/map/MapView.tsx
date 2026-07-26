@@ -344,6 +344,14 @@ export default function MapView() {
   const map = getMap(session?.mapId ?? "");
   const heightmap = useHeightmap(map.id);
 
+  // Target label font sizes are `calc(... * var(--label-scale))`. It's set on the
+  // document root rather than on MapContainer, whose props react-leaflet only
+  // reads once at mount — a later change to its `style` would never take effect.
+  const labelScale = useAppStore((s) => s.labelScale);
+  useEffect(() => {
+    document.documentElement.style.setProperty("--label-scale", String(labelScale));
+  }, [labelScale]);
+
   // Right-click draw menu position (viewport coords) and the armed shape tool.
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [armed, setArmed] = useState<ShapeType | null>(null);

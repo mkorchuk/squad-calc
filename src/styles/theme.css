@@ -845,10 +845,12 @@ button {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
+/* Font sizes scale with --label-scale (the sidebar's "Label size" slider); the
+   vertical offset scales with them so the stack stays centred on the ring. */
 .target-marker__label {
   position: absolute;
   right: 11px;
-  top: -16px;
+  top: calc(-16px * var(--label-scale, 1));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -859,14 +861,14 @@ button {
 
 .target-marker__mil {
   color: #fff;
-  font-size: 15px;
+  font-size: calc(15px * var(--label-scale, 1));
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
 .target-marker__bearing {
   color: #eaf0f7;
-  font-size: 11px;
+  font-size: calc(11px * var(--label-scale, 1));
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }

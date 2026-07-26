@@ -10,6 +10,19 @@ export const MAX_SPACING = 200;
 
 export const DEFAULT_GRID_OPACITY = 1;
 
+/**
+ * Multiplier on the target label's font size; 1 = the base sizes in theme.css,
+ * which is both the default and the largest the labels go.
+ */
+export const DEFAULT_LABEL_SCALE = 1;
+export const MIN_LABEL_SCALE = 0.5;
+export const MAX_LABEL_SCALE = 1;
+
+function clampLabelScale(scale: number): number {
+  if (!Number.isFinite(scale)) return DEFAULT_LABEL_SCALE;
+  return Math.min(MAX_LABEL_SCALE, Math.max(MIN_LABEL_SCALE, scale));
+}
+
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -26,6 +39,7 @@ interface AppState {
   targetTool: TargetTool;
   spacing: number;
   gridOpacity: number;
+  labelScale: number;
   /** Whether to draw the mortar spread (dispersion) circle around each target. */
   showSpread: boolean;
   sidebarVisible: boolean;
@@ -43,6 +57,7 @@ interface AppState {
   setTargetTool: (tool: TargetTool) => void;
   setSpacing: (spacing: number) => void;
   setGridOpacity: (opacity: number) => void;
+  setLabelScale: (scale: number) => void;
   toggleSpread: () => void;
   toggleSidebar: () => void;
 
@@ -73,6 +88,7 @@ export const useAppStore = create<AppState>()(
         targetTool: "single",
         spacing: DEFAULT_SPACING,
         gridOpacity: DEFAULT_GRID_OPACITY,
+        labelScale: DEFAULT_LABEL_SCALE,
         showSpread: false,
         sidebarVisible: true,
 
@@ -138,6 +154,8 @@ export const useAppStore = create<AppState>()(
 
         setGridOpacity: (opacity) =>
           set({ gridOpacity: Math.min(1, Math.max(0, opacity)) }),
+
+        setLabelScale: (scale) => set({ labelScale: clampLabelScale(scale) }),
 
         toggleSpread: () => set((state) => ({ showSpread: !state.showSpread })),
 
@@ -212,6 +230,12 @@ export const useAppStore = create<AppState>()(
           })),
       };
     },
-    { name: "squadcalc-lite" }
+    {
+      name: "squadcalc-lite",
+      // A build before the 100% cap could have persisted a larger scale.
+      onRehydrateStorage: () => (state) => {
+        if (state) state.labelScale = clampLabelScale(state.labelScale);
+      },
+    }
   )
 );
