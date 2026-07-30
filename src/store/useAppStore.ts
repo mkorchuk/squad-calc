@@ -109,7 +109,7 @@ export const useAppStore = create<AppState>()(
               mapId: data.mapId,
               mortar: data.mortar,
               targets: data.targets.map((t) => ({ id: uid(), lat: t.lat, lng: t.lng })),
-              shapes: [],
+              shapes: data.shapes.map((s) => ({ ...s, id: uid() })),
             };
             return { sessions: [...state.sessions, session], activeSessionId: session.id };
           }),
@@ -139,6 +139,9 @@ export const useAppStore = create<AppState>()(
               mapId,
               mortar: null,
               targets: [],
+              // Shapes are map-relative too, so they'd land somewhere meaningless
+              // on the new map — clear them with everything else.
+              shapes: [],
             })),
           })),
 

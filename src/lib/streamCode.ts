@@ -21,7 +21,7 @@ function codePath(code: string): string {
 }
 
 /** Six digits, zero-padded. Digits only so it's unambiguous read aloud. */
-export function makeStreamCode(): string {
+function makeStreamCode(): string {
   const n = new Uint32Array(1);
   crypto.getRandomValues(n);
   return String(n[0] % 1_000_000).padStart(6, "0");

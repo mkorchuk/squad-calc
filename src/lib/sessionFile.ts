@@ -2,11 +2,14 @@
  * Save/load a session as a standalone JSON file.
  *
  * JSON is used because a session is just structured data (map id, mortar,
- * targets) with no binary content — it round-trips losslessly, stays
+ * targets, shapes) with no binary content — it round-trips losslessly, stays
  * human-readable/diffable, and needs no extra parsing library in the browser.
+ *
+ * Shapes are written without their ids: the store mints fresh ones on import,
+ * the same way it does for targets.
  */
 import { MAPS, DEFAULT_MAP_ID } from "../data/maps";
-import type { Session } from "../store/types";
+import type { Session, ShapeInput } from "../store/types";
 
 const FILE_FORMAT = "squadcalc-session";
 const FILE_VERSION = 1;
@@ -18,6 +21,7 @@ interface SessionFileV1 {
   mapId: string;
   mortar: { lat: number; lng: number } | null;
   targets: { lat: number; lng: number }[];
+  shapes: ShapeInput[];
 }
 
 export interface ImportedSession {
@@ -25,6 +29,7 @@ export interface ImportedSession {
   mapId: string;
   mortar: { lat: number; lng: number } | null;
   targets: { lat: number; lng: number }[];
+  shapes: ShapeInput[];
 }
 
 function sanitizeFileName(name: string): string {
@@ -38,6 +43,21 @@ function isFinitePoint(v: unknown): v is { lat: number; lng: number } {
   return typeof p.lat === "number" && typeof p.lng === "number" && Number.isFinite(p.lat) && Number.isFinite(p.lng);
 }
 
+/** Drops anything that isn't a well-formed shape, mirroring the target handling. */
+function toShapeInput(v: unknown): ShapeInput | null {
+  if (!v || typeof v !== "object") return null;
+  const s = v as Record<string, unknown>;
+  if (s.type === "circle") {
+    if (!isFinitePoint(s.center) || typeof s.radius !== "number" || !Number.isFinite(s.radius)) return null;
+    return { type: "circle", center: { lat: s.center.lat, lng: s.center.lng }, radius: s.radius };
+  }
+  if (s.type === "line" || s.type === "rect") {
+    if (!isFinitePoint(s.a) || !isFinitePoint(s.b)) return null;
+    return { type: s.type, a: { lat: s.a.lat, lng: s.a.lng }, b: { lat: s.b.lat, lng: s.b.lng } };
+  }
+  return null;
+}
+
 /** Triggers a browser download of the session as a `.json` file. */
 export function downloadSession(session: Session): void {
   const file: SessionFileV1 = {
@@ -47,6 +67,7 @@ export function downloadSession(session: Session): void {
     mapId: session.mapId,
     mortar: session.mortar ? { lat: session.mortar.lat, lng: session.mortar.lng } : null,
     targets: session.targets.map((t) => ({ lat: t.lat, lng: t.lng })),
+    shapes: session.shapes.map(({ id: _id, ...rest }) => rest),
   };
 
   const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
@@ -78,8 +99,12 @@ export function parseSessionFile(text: string): ImportedSession {
   const mapId = typeof d.mapId === "string" && MAPS.some((m) => m.id === d.mapId) ? d.mapId : DEFAULT_MAP_ID;
   const mortar = isFinitePoint(d.mortar) ? { lat: d.mortar.lat, lng: d.mortar.lng } : null;
   const targets = Array.isArray(d.targets) ? d.targets.filter(isFinitePoint).map((t) => ({ lat: t.lat, lng: t.lng })) : [];
+  // Absent in files written before shapes were saved — treat as none, not an error.
+  const shapes = Array.isArray(d.shapes)
+    ? d.shapes.map(toShapeInput).filter((s): s is ShapeInput => s !== null)
+    : [];
 
-  return { name, mapId, mortar, targets };
+  return { name, mapId, mortar, targets, shapes };
 }
 
 /** Reads a File (e.g. from a file input) and parses it as a session. */

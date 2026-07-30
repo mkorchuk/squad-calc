@@ -13,7 +13,7 @@ export interface StreamState {
   sessionName: string;
 }
 
-export function roomPath(roomId: string): string {
+function roomPath(roomId: string): string {
   return `rooms/${roomId}`;
 }
 
