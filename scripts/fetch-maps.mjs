@@ -1,27 +1,35 @@
 /**
  * Downloads each map's basemap image and heightmap into public/maps/.
- * Run once: `npm run fetch-maps`.
+ * Run once after a fresh clone: `npm run fetch-maps`.
  *
  *   <id>.webp         — basemap tile image (shown on the map)
  *   <id>.height.json  — 500x500 grid of terrain heights in meters, used to
  *                       compute an accurate firing elevation (heightDiff).
  *
+ * Assets come from our own Firebase Hosting mirror (see scripts/mapAssets.mjs
+ * for the bootstrap chain and the MAPS_MIRROR override). Heights on the mirror
+ * are already rounded to 0.1m — sub-decimeter terrain precision has no
+ * meaningful effect on the firing elevation, and it roughly halves file size —
+ * so the bytes are written straight through with no re-processing.
+ *
+ * Files already present locally are never re-downloaded or overwritten, so a
+ * broken mirror can't clobber a good local copy.
+ *
  * Data is © OWI and is bundled locally for personal use.
  */
 import { mkdir, writeFile, access } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = join(__dirname, "..", "public", "maps");
-const BASE = "https://squadcalc.app/api/img/maps";
-
-const MAP_IDS = [
-  "albasrah", "anvil", "blackcoast", "chora", "fallujah", "foolsroad",
-  "goosebay", "gorodok", "harju", "jensen", "kamdesh", "kohat", "kokan",
-  "lashkar", "logar", "manicouagan", "mestia", "mutaha", "narva", "pacific",
-  "sanxian", "skorpo", "sumari", "tallil", "yehorivka",
-];
+import {
+  BASE,
+  KINDS,
+  MAP_IDS,
+  OUT_DIR,
+  assetName,
+  assetUrl,
+  fetchAsset,
+  runPool,
+} from "./mapAssets.mjs";
 
 async function exists(path) {
   try {
@@ -32,48 +40,49 @@ async function exists(path) {
   }
 }
 
-async function downloadBasemap(id) {
-  const out = join(OUT_DIR, `${id}.webp`);
-  if (await exists(out)) {
-    console.log(`= ${id}.webp (present)`);
-    return;
-  }
-  const url = `${BASE}/${id}/basemap.webp`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    console.error(`✗ ${id}.webp: HTTP ${res.status}`);
-    return;
-  }
-  const buf = Buffer.from(await res.arrayBuffer());
-  await writeFile(out, buf);
-  console.log(`✓ ${id}.webp (${(buf.length / 1024).toFixed(0)} KB)`);
-}
+/** id → line, so interleaved parallel jobs still report in a stable order. */
+const log = new Map();
+const failures = [];
 
-async function downloadHeightmap(id) {
-  const out = join(OUT_DIR, `${id}.height.json`);
+async function download(id, kind) {
+  const name = assetName(id, kind);
+  const out = join(OUT_DIR, name);
   if (await exists(out)) {
-    console.log(`= ${id}.height.json (present)`);
+    log.set(name, `= ${name} (present)`);
     return;
   }
-  const url = `${BASE}/${id}/heightmap.json`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    console.error(`✗ ${id}.height.json: HTTP ${res.status} (no heightmap for this map)`);
+  const { buf, error } = await fetchAsset(assetUrl(id, kind), KINDS[kind].type);
+  if (error) {
+    log.set(name, `✗ ${name}: ${error}`);
+    failures.push(name);
     return;
   }
-  const grid = await res.json();
-  // Round to 0.1m to roughly halve the file size; sub-decimeter terrain
-  // precision has no meaningful effect on the firing elevation.
-  const rounded = grid.map((row) => row.map((v) => Math.round(v * 10) / 10));
-  const text = JSON.stringify(rounded);
-  await writeFile(out, text);
-  console.log(`✓ ${id}.height.json (${(text.length / 1024).toFixed(0)} KB)`);
+  await writeFile(out, buf);
+  log.set(name, `✓ ${name} (${(buf.length / 1024).toFixed(0)} KB)`);
 }
 
 await mkdir(OUT_DIR, { recursive: true });
-console.log(`Downloading ${MAP_IDS.length} maps into ${OUT_DIR}\n`);
+console.log(`Fetching ${MAP_IDS.length} maps from ${BASE}\n  into ${OUT_DIR}\n`);
+
+const kinds = Object.keys(KINDS);
+await runPool(MAP_IDS.flatMap((id) => kinds.map((kind) => () => download(id, kind))));
+
 for (const id of MAP_IDS) {
-  await downloadBasemap(id);
-  await downloadHeightmap(id);
+  for (const kind of kinds) console.log(log.get(assetName(id, kind)));
 }
+
+if (failures.length > 0) {
+  console.error(`\n${failures.length} asset(s) missing locally and absent from the mirror:`);
+  for (const name of failures) console.error(`  ${name}`);
+  console.error(
+    "\nThe mirror only holds maps it has already been deployed. For a NEW map, place\n" +
+      "the files in public/maps/ by hand, then `npm run deploy` to publish them to the\n" +
+      "mirror. See the \"Map imagery\" section of CLAUDE.md.",
+  );
+  // Set the code rather than process.exit() — a hard exit while fetch's
+  // keep-alive sockets are still open trips a libuv assertion on Windows and
+  // reports 127 instead of 1. Letting Node drain exits cleanly with the code.
+  process.exitCode = 1;
+}
+
 console.log("\nDone.");

@@ -13,7 +13,8 @@ This app (internally "SquadCalc Lite" in code/package name) is a stripped-down m
 ## Commands
 
 ```bash
-npm run fetch-maps   # one-time: downloads basemap.webp for all 25 maps into public/maps/ (gitignored)
+npm run fetch-maps   # one-time: downloads the basemap + heightmap for all 25 maps into public/maps/ (gitignored)
+npm run verify-maps  # checks every map this app knows about is actually present on the mirror
 npm run deploy       # fetch-maps + build + firebase deploy --only hosting,database (https://squadcalc.web.app)
 ```
 
@@ -92,4 +93,27 @@ RTDB rules are in [database.rules.json](database.rules.json). Still no auth, so 
 
 ### Map imagery
 
-Basemap `.webp` images and `heightmap.json` files are fetched from `https://squadcalc.app/api/img/maps/<id>/` by [scripts/fetch-maps.mjs](scripts/fetch-maps.mjs) into `public/maps/` as `<id>.webp` and `<id>.height.json` (both gitignored, © OWI — see README credits). Heights are rounded to 0.1m to roughly halve file size. Run `npm run fetch-maps` after a fresh clone or `npm install`; the dev server will otherwise show broken map images and fall back to flat-terrain elevation.
+Each map needs two files in `public/maps/` (both gitignored, © OWI — see README credits): `<id>.webp` (basemap) and `<id>.height.json` (500×500 height grid, rounded to 0.1m to roughly halve the size). Run `npm run fetch-maps` after a fresh clone or `npm install`; the dev server will otherwise show broken map images and fall back to flat-terrain elevation.
+
+**The assets are mirrored on our own Firebase Hosting**, at `https://squadcalc.web.app/maps/<id>.webp` — there is no third-party upstream. (Firebase *Storage* is not an option: the bucket is unprovisioned and, for a project of this vintage, Cloud Storage requires the Blaze plan while this project is on Spark. Hosting already serves the files for free.) Override the mirror with the `MAPS_MIRROR` env var to point at a preview channel, a custom domain, or a future bucket — nothing else needs changing.
+
+The bootstrap is **circular but self-sustaining**: `public/maps` → `dist/maps` (vite copies `public/` verbatim) → Hosting (`firebase deploy`) → `public/maps` (`fetch-maps` on the next clone). So **at least one successful deploy must exist before a fresh clone can bootstrap**. `fetch-maps` never overwrites or deletes a file already present locally, so a bad mirror can't clobber a good local copy — but the 88MB `public/maps` is still worth keeping an offline backup of, since it is both the source and the product of the mirror.
+
+Two gotchas worth not rediscovering:
+
+- **A missing asset returns `200 text/html`, not `404`.** `firebase.json` rewrites `**` → `/index.html`, so an absent map serves a ~400-byte HTML page with a success status. `fetchAsset`/`headAsset` in [scripts/mapAssets.mjs](scripts/mapAssets.mjs) therefore validate `content-type`, not just `res.ok` — without that, `fetch-maps` writes the HTML page over the map. Don't "simplify" it back to an `res.ok` check.
+- **Don't call `process.exit()` in these scripts.** Exiting while fetch's keep-alive sockets are open trips a libuv assertion on Windows and reports 127 instead of 1. Set `process.exitCode` and let Node drain.
+
+[scripts/mapAssets.mjs](scripts/mapAssets.mjs) holds what `fetch-maps` and `verify-maps` share: the mirror base, the asset kinds, the fetch/head helpers and a 6-way concurrency pool (a full 88MB bootstrap takes ~9s). The map id list is **derived from `MAPS` in [src/data/maps.ts](src/data/maps.ts)** — the scripts import the `.ts` directly, relying on Node's native type stripping (needs **Node ≥ 22.18**), so adding a map means editing one file. If that ever breaks, fall back to a hardcoded id list.
+
+The `/maps/**` `Cache-Control` in `firebase.json` is `max-age=31536000, immutable`. The filenames are *not* content-hashed, so if a map's imagery is ever replaced under the same name, returning visitors keep the stale copy for up to a year — rename the file or drop the max-age before deploying such a replacement.
+
+### Adding a new map
+
+The mirror can only serve maps it has already been deployed, so a new map is sourced by hand exactly once:
+
+1. Add the entry to `RAW_MAPS` in [src/data/maps.ts](src/data/maps.ts) (`id`, `name`, `corner0`, `corner1` from the SDK minimap corners). This is the only id list.
+2. Put `<id>.webp` and `<id>.height.json` into `public/maps/` manually (heightmap: 500×500 grid of metre heights, rounded to 0.1m to match the others).
+3. `npm run build`, then check the map appears in the selector and the elevation readout is non-zero on slopes.
+4. `npm run deploy` — `fetch-maps` skips the files (already present locally) and the deploy publishes them to the mirror. If you skip step 2, `fetch-maps` hard-fails with exit 1 and names the missing files rather than shipping a broken map.
+5. `npm run verify-maps` — confirms the new map is mirrored, so the next clone can bootstrap it.
