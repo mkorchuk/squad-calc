@@ -5,6 +5,6 @@ dist
 .firebase
 firebase-debug.log
 
-# Bundled map data (© OWI / SquadCalc). Regenerate with: npm run fetch-maps
+# Bundled map data (© OWI). Regenerate with: npm run fetch-maps
 public/maps/*.webp
 public/maps/*.height.json

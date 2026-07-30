@@ -2,12 +2,10 @@
  * Terrain heightmaps — "Deducing Altitude".
  *
  * Each map has a 500x500 grid of terrain heights in meters (bundled at
- * /maps/<id>.height.json by `npm run fetch-maps`, sourced from SquadCalc).
- * Sampling mirrors SquadCalc exactly so the firing elevation matches:
- * a game coordinate in meters maps to a grid cell by `500 / mapSizeMeters`,
- * and out-of-bounds lookups return 0 (not the nearest edge).
- *
- * https://github.com/sh4rkman/SquadCalc/wiki/Deducing-Altitude
+ * /maps/<id>.height.json by `npm run fetch-maps`). Sampling mirrors the game so
+ * the firing elevation matches: a game coordinate in meters maps to a grid cell
+ * by `500 / mapSizeMeters`, and out-of-bounds lookups return 0 (not the nearest
+ * edge).
  */
 import type { MapDefinition } from "../data/maps";
 

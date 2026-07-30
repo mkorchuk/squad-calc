@@ -6,14 +6,14 @@ import { useAppStore } from "../../store/useAppStore";
 
 const KEYPAD = 300; // meters per keypad square (Squad standard)
 const SUB = 100; // meters per sub-keypad (100m)
-const FINE = SUB / 3; // ~33.33m sub-keypad, matching SquadCalc's finest grid tier
+const FINE = SUB / 3; // ~33.33m sub-keypad, the finest in-game grid tier
 
 // Fine grid only appears once zoomed in this far, so a ~33m cell reads as a
 // legible square (~65px at zoom 1 in this CRS, where 1 unit = 1 meter) rather
 // than a dense mess over the whole map at the default zoomed-out view.
 const FINE_MIN_ZOOM = 1;
 
-/** Column index (1-based) -> letter: 1=A, 2=B, ... matching SquadCalc. */
+/** Column index (1-based) -> letter: 1=A, 2=B, ... matching the in-game grid. */
 function colLabel(i: number): string {
   return (i + 9).toString(36).toUpperCase();
 }
@@ -29,7 +29,7 @@ function gridLabelIcon(text: string): L.DivIcon {
 
 /**
  * Squad keypad grid overlay, drawn from the map's top-left corner (0,0).
- * Three tiers, from SquadCalc's squadGrid.js: 300m keypad lines, 100m
+ * Three tiers, as in game: 300m keypad lines, 100m
  * sub-keypad lines, and a 33.33m fine tier shown only when zoomed in.
  */
 export default function MapGrid({ map }: { map: MapDefinition }) {

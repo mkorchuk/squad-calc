@@ -1,6 +1,6 @@
 # SquadCalc
 
-A stripped-down mortar/target planner inspired by [SquadCalc](https://github.com/sh4rkman/SquadCalc).
+A stripped-down mortar/target planner for Squad.
 
 ## Features
 
@@ -8,7 +8,7 @@ A stripped-down mortar/target planner inspired by [SquadCalc](https://github.com
 - Place a **mortar** (blue) and **targets** (red) by clicking the map. Markers are draggable.
 - Each target shows **bearing**, **distance**, and firing **elevation** (in degrees and mil),
   using the standard Squad Mortar ballistics. Elevation accounts for **terrain altitude**
-  (heightmap-based, matching SquadCalc); popups show each mark's altitude.
+  (heightmap-based); popups show each mark's altitude.
 - **Sessions** in the left sidebar — each keeps its own map and marks, persisted in the browser
   (`localStorage`). Each session can be **saved to a `.json` file** and **imported** back later
   (or shared with someone else) via the sidebar buttons.
@@ -27,7 +27,7 @@ Open the printed URL (default http://localhost:5173).
 
 - `npm run dev` — start the Vite dev server
 - `npm run build` — typecheck + production build
-- `npm run fetch-maps` — download map basemaps from squadcalc.app
+- `npm run fetch-maps` — download the map basemaps and heightmaps
 
 ## Tech
 
@@ -44,10 +44,9 @@ React + TypeScript + Vite, Leaflet (`CRS.Simple`) via react-leaflet, zustand for
 
 The map overlay is placed so 1 Leaflet unit = 1 in-game meter, letting the ballistics
 functions work directly on marker coordinates. Terrain altitude comes from a bundled
-500×500 heightmap per map (`src/lib/heightmap.ts`), sampled exactly as SquadCalc does so
+500×500 heightmap per map (`src/lib/heightmap.ts`), sampled the same way the game does so
 the firing elevation matches.
 
 ## Credits
 
-Map imagery and ballistics data derive from [SquadCalc](https://github.com/sh4rkman/SquadCalc)
-(© OWI / SquadCalc). Bundled here for personal use.
+Map imagery and ballistics data derive from the game (© OWI). Bundled here for personal use.

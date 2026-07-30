@@ -15,7 +15,7 @@ import {
 import { sampleHeight, type HeightGrid } from "../../lib/heightmap";
 import { targetIcon } from "./markerIcons";
 
-/** Dispersion ellipse styling — a translucent red area, matching SquadCalc's spread markers. */
+/** Dispersion ellipse styling — a translucent red area. */
 const SPREAD_STYLE = {
   color: "#ff3b3b",
   weight: 1.3,

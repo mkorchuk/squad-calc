@@ -6,7 +6,7 @@
  *   <id>.height.json  — 500x500 grid of terrain heights in meters, used to
  *                       compute an accurate firing elevation (heightDiff).
  *
- * Data is © OWI / SquadCalc and is bundled locally for personal use.
+ * Data is © OWI and is bundled locally for personal use.
  */
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { dirname, join } from "node:path";

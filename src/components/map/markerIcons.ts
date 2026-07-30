@@ -27,7 +27,7 @@ export interface TargetLabel {
 
 /**
  * Red ring with an optional firing-data label to its left (elevation mil on top,
- * bearing below), mirroring SquadCalc. No index number.
+ * bearing below). No index number.
  */
 export function targetIcon(label: TargetLabel): L.DivIcon {
   const hasLabel = label.bearing !== null;

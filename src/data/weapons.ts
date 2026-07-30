@@ -1,6 +1,5 @@
 /**
- * Ballistics constants for the standard Squad Mortar.
- * Values mirror the original SquadCalc weapon definition.
+ * Ballistics constants for the standard Squad Mortar, matching the in-game values.
  *
  * Extensibility: add more Weapon entries here (UB-32, Hell Cannon, etc.) and a
  * selector in the UI; the ballistics functions already take a Weapon argument.

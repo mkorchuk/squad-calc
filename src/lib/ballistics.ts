@@ -1,5 +1,5 @@
 /**
- * Pure firing-solution math, replicated from the original SquadCalc.
+ * Pure firing-solution math for the in-game mortar.
  *
  * Coordinate convention: markers store Leaflet {lat, lng} where the map image is
  * placed in meters directly (see lib/mapBounds.ts), so 1 unit == 1 meter and
@@ -83,18 +83,17 @@ export function getElevation(
 }
 
 export interface Spread {
-  /** Lateral dispersion length, in meters (SquadCalc's semiMajorAxis / horizontal spread). */
+  /** Lateral dispersion length, in meters (the ellipse's major axis / horizontal spread). */
   semiMajor: number;
-  /** Down-range dispersion length, in meters (SquadCalc's semiMinorAxis / vertical spread). */
+  /** Down-range dispersion length, in meters (the ellipse's minor axis / vertical spread). */
   semiMinor: number;
   /** Radius of a circle bounding the whole footprint = max(semiMajor, semiMinor) / 2. */
   radius: number;
 }
 
 /**
- * Time of flight (seconds) for the high-angle shot, matching SquadCalc's
- * `getTimeOfFlight`. Falls back to a flat-terrain approximation when the height
- * term makes the root imaginary.
+ * Time of flight (seconds) for the high-angle shot. Falls back to a flat-terrain
+ * approximation when the height term makes the root imaginary.
  */
 function getTimeOfFlight(v: number, g: number, angleRad: number, heightDiff: number): number {
   const vy = v * Math.sin(angleRad);
@@ -104,10 +103,9 @@ function getTimeOfFlight(v: number, g: number, angleRad: number, heightDiff: num
 }
 
 /**
- * Dispersion ellipse axes for the high-angle firing solution, ported from the
- * deployed SquadCalc's `SquadFiringSolution` (getHorizontalSpread /
- * getVerticalSpread). The in-game scatter forms an ellipse tilted to the firing
- * line, with both axes depending on the firing angle (and thus distance):
+ * Dispersion ellipse axes for the high-angle firing solution. The in-game
+ * scatter forms an ellipse tilted to the firing line, with both axes depending
+ * on the firing angle (and thus distance):
  *
  *  - Lateral (semiMajor): the MOA cone's horizontal velocity component carried
  *    over the whole time of flight, `sin(moaRad) · v · tof`. Large and nearly
@@ -116,10 +114,8 @@ function getTimeOfFlight(v: number, g: number, angleRad: number, heightDiff: num
  *    and lower edges (θ ± moa/2), via the range equation `v²·sin(2θ)/g`. Large
  *    for near/steep shots and collapses toward max range as θ → 45°.
  *
- * NB: this follows the shipped SquadCalc code, which differs from its
- * "Deducing Spread" wiki (the wiki derives the lateral axis from trajectory arc
- * length instead). Returns both axes plus a bounding-circle `radius`, or null
- * when there is no valid firing solution (same gating as getElevation).
+ * Returns both axes plus a bounding-circle `radius`, or null when there is no
+ * valid firing solution (same gating as getElevation).
  */
 export function getSpread(distance: number, weapon: Weapon, heightDiff = 0): Spread | null {
   const elevation = getElevation(distance, weapon, heightDiff);
@@ -146,8 +142,8 @@ export function getSpread(distance: number, weapon: Weapon, heightDiff = 0): Spr
  * Polygon approximation of the dispersion ellipse for drawing on the map, as an
  * array of [lat, lng] pairs. The ellipse is centred on the target and oriented to
  * the firing line: its down-range half-axis (`semiMinor / 2`) points along the
- * bearing, its lateral half-axis (`semiMajor / 2`) across it — matching SquadCalc,
- * which tilts the spread ellipse by the firing bearing. Coordinates are in meters
+ * bearing, its lateral half-axis (`semiMajor / 2`) across it, so the ellipse is
+ * tilted by the firing bearing. Coordinates are in meters
  * (1 Leaflet unit = 1 meter), with lng = east and lat increasing north.
  */
 export function spreadEllipse(

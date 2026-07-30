@@ -2,11 +2,10 @@
  * Squad map definitions.
  *
  * `sizeX` / `sizeY` are the real in-game dimensions in meters, derived from the
- * SDK minimap corners (corner1 - corner0) used by the original SquadCalc.
+ * SDK minimap corners (corner1 - corner0).
  * `image` points to the locally bundled basemap under /public/maps.
  *
- * Source of corner data & imagery: https://github.com/sh4rkman/SquadCalc
- * (imagery © OWI / SquadCalc — bundled here for personal use).
+ * Imagery © OWI — bundled here for personal use.
  */
 export interface MapDefinition {
   id: string;
