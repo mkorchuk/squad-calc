@@ -18,7 +18,7 @@ npm run fetch-maps   # one-time: downloads basemap.webp for all 25 maps into pub
 npm run dev           # Vite dev server, http://localhost:5173
 npm run build          # tsc -b (typecheck) && vite build
 npm run preview        # serve the production build locally
-npm run deploy        # fetch-maps + build + firebase deploy --only hosting (https://squadcalc.web.app)
+npm run deploy        # fetch-maps + build + firebase deploy --only hosting,database (https://squadcalc.web.app)
 ```
 
 There is no lint or test script configured. `npm run build` is the only correctness gate (typecheck + bundling); run it after any change.
@@ -57,15 +57,34 @@ Firing elevation accounts for terrain height difference. Each map has a 500×500
 - [src/components/map/markerIcons.ts](src/components/map/markerIcons.ts) — builds the Leaflet `DivIcon`s for both marker types (mortar pin with an inline SVG glyph; target ring + floating mil/bearing label).
 - [src/styles/theme.css](src/styles/theme.css) — single global stylesheet (grey/dark-blue theme), including Leaflet control overrides (zoom control is disabled; cursor is a crosshair over the map).
 
-### Live streaming (spectator links)
+### Live streaming
 
-A host can broadcast the active session live to a read-only spectator link via **Firebase Realtime Database** (project `squadcalc`, instance `squadcalc-default-rtdb`, us-central1). The `firebase` web SDK config lives in [src/lib/firebase.ts](src/lib/firebase.ts) (apiKey is public, not a secret; access is governed by RTDB rules). RTDB rules are in [database.rules.json](database.rules.json) — each `rooms/$roomId` is **publicly read+write** (MVP; no auth). `npm run deploy` is hosting-only, so rules must be pushed separately with `firebase deploy --only database`.
+A host can mirror the active session to another screen, over **Firebase Realtime Database** (project `squadcalc`, instance `squadcalc-default-rtdb`, us-central1). The `firebase` web SDK config lives in [src/lib/firebase.ts](src/lib/firebase.ts) (apiKey is public, not a secret; access is governed by RTDB rules). There are **two viewer paths**, both rendering through the same component:
 
-- [src/lib/stream.ts](src/lib/stream.ts) — `publishStream` (host overwrites `rooms/{roomId}` with `{ mapId, mortar, targets, shapes, updatedAt }`), `subscribeStream` (viewer `onValue`; empty arrays come back absent from RTDB, so targets/shapes default to `[]`), `removeStream` (explicit Stop), `removeRoomOnDisconnect` (`onDisconnect().remove()` so a closed/reloaded host tab clears the room and spectators see "stream ended"). Build the synced object explicitly — RTDB rejects the whole write on any `undefined`.
-- [src/store/useStreamStore.ts](src/store/useStreamStore.ts) — tiny **non-persisted** zustand store holding `roomId` (a reload ends the stream rather than resurrecting a dead room). Kept out of `useAppStore` so persistence isn't affected.
-- [src/hooks/useStreamPublisher.ts](src/hooks/useStreamPublisher.ts) — host-side; called from `Layout`. Republishes on every active-session change while streaming; registers `onDisconnect` cleanup once per room.
-- [src/components/StreamButton.tsx](src/components/StreamButton.tsx) — the toolbar "Stream" button. First click starts a stream and shows a `position: fixed` "Tap to copy link" popup (10s auto-hide) with a Stop action; link is `${origin}/?watch=${roomId}`. Clipboard write can fail in unfocused/insecure contexts — it's caught and the popup stays open.
-- [src/components/watch/WatchView.tsx](src/components/watch/WatchView.tsx) — the spectator view. [App.tsx](src/App.tsx) renders it instead of `Layout` when `?watch=<roomId>` is present. Subscribes to the room and renders a non-interactive map (reusing `markerIcons`, `ShapeLayer`, `MapGrid`, `ballistics`, `useHeightmap`) — no sidebar/toolbar, no placement. Recomputes each target's mil/bearing from the streamed mortar+heightmap. Shows "Connecting…" until first snapshot and "stream isn't live" when the room is gone.
+1. **`/live` — the display screen.** A second PC parks on this fixed URL permanently. Pressing **Stream** on the host shows a **6-digit code**; type it on the `/live` screen and it mirrors the map. This is the primary path.
+2. **`?watch=<roomId>` — the share link.** For spectators elsewhere. Reachable from the popup's "Copy share link" once live.
+
+#### The code handshake
+
+The host mints the code, the display consumes it — deliberately, because it needs no discovery, no auth, and no assumptions about the two machines being on the same network. Possession of the code (read off one screen, typed on the other) *is* the whole handshake. An earlier design tried to auto-discover displays by hashing the two machines' public IP into a shared bucket; it was dropped as unreliable — nothing about a browser guarantees two machines on one LAN see the same public IP, and it needed an approval prompt on top to be safe.
+
+[src/lib/streamCode.ts](src/lib/streamCode.ts) owns it. Data model:
+
+- `codes/{code}` — `{ roomId, createdAt }`. Six digits, digits-only so it's unambiguous read aloud. Claimed with `runTransaction` so two hosts starting at the same moment can't share a code; removed on Stop and by `onDisconnect`; any entry older than 12h can be re-claimed.
+- `rooms/{roomId}` — unchanged, plus a `sessionName` field for the viewer banner.
+
+#### Files
+
+- [src/lib/stream.ts](src/lib/stream.ts) — `publishStream` (host overwrites `rooms/{roomId}`), `subscribeStream` (viewer `onValue`; empty arrays come back absent from RTDB, so targets/shapes default to `[]`), `removeStream`, `removeRoomOnDisconnect`. Build every synced object explicitly — RTDB rejects the whole write on any `undefined`.
+- [src/store/useStreamStore.ts](src/store/useStreamStore.ts) — **non-persisted** host state: `off → starting → live` (plus `error`). `start()` mints a room id, claims a code, and arms `onDisconnect` on the code; `stop()` removes both the room and the code. Not persisted, so a host reload ends the stream rather than resurrecting a dead room.
+- [src/hooks/useStreamPublisher.ts](src/hooks/useStreamPublisher.ts) — publishes only while `phase === "live"`, **throttled to ~200ms** with a trailing write. Dragging a marker mutates the session every mousemove and each publish is a full room overwrite, so the unthrottled version was a per-frame multi-KB write.
+- [src/hooks/useLiveDisplay.ts](src/hooks/useLiveDisplay.ts) — the `/live` controller: `idle → joining → connecting → live`, plus `ended`/`error`. The resolved `roomId` and code live in **`sessionStorage`**, so F5 on the display resumes the stream while genuinely reopening `/live` starts from the code prompt. A 15s grace window covers a host reload before it gives up and shows "Stream ended".
+- [src/components/live/LiveDisplayView.tsx](src/components/live/LiveDisplayView.tsx) — the `/live` page. The code entry is **one real input rendered invisibly over six presentational boxes** (`.live__code-char`), which keeps paste, mobile keyboards and autofill working while still looking like separate digits; the boxes are `pointer-events: none` so clicks land on the input. Typing the sixth digit submits — no Enter needed.
+- [src/components/StreamButton.tsx](src/components/StreamButton.tsx) / [src/components/stream/StreamPopup.tsx](src/components/stream/StreamPopup.tsx) — the toolbar button and its dropdown, which shows the join code, the share link, and Stop.
+- [src/components/watch/StreamMap.tsx](src/components/watch/StreamMap.tsx) — the shared read-only renderer (map image, grid, shapes pane, mortar/target markers, spectator-side mil/bearing recomputation). Callers own their loading/empty states so `useHeightmap` never sits behind an early return. [WatchView.tsx](src/components/watch/WatchView.tsx) and `LiveDisplayView` both render it, so the two viewer paths can't drift apart.
+- [App.tsx](src/App.tsx) — checks `?watch=` **first** (so `/live?watch=…` still spectates a specific room), then `/live` by pathname. Both work in dev and in production because Vite's SPA mode and the Firebase hosting rewrite each serve `index.html` for unknown paths.
+
+RTDB rules are in [database.rules.json](database.rules.json). Still no auth, so they do structural validation and key-shape restriction rather than authorization: `rooms/` and `codes/` are each scoped, `$other` children are rejected, and nothing is granted above those paths. `npm run deploy` pushes `hosting,database` together so rules ship with the app; **if you change the rules, they must be live before the feature works** — the app talks to production RTDB even from `npm run dev`.
 
 ### Map imagery
 

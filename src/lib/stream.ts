@@ -9,9 +9,11 @@ export interface StreamState {
   mortar: MortarMark | null;
   targets: TargetMark[];
   shapes: Shape[];
+  /** Active session's name, shown in the viewer banner. "" when unknown. */
+  sessionName: string;
 }
 
-function roomPath(roomId: string): string {
+export function roomPath(roomId: string): string {
   return `rooms/${roomId}`;
 }
 
@@ -22,6 +24,7 @@ export function publishStream(roomId: string, state: StreamState): Promise<void>
     mortar: state.mortar,
     targets: state.targets,
     shapes: state.shapes,
+    sessionName: state.sessionName,
     updatedAt: Date.now(),
   });
 }
@@ -56,6 +59,7 @@ export function subscribeStream(
       mortar: v.mortar ?? null,
       targets: Array.isArray(v.targets) ? v.targets : [],
       shapes: Array.isArray(v.shapes) ? v.shapes : [],
+      sessionName: typeof v.sessionName === "string" ? v.sessionName : "",
     });
   });
 }

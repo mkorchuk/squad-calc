@@ -1,21 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useStreamStore } from "../store/useStreamStore";
-import { removeStream } from "../lib/stream";
+import StreamPopup from "./stream/StreamPopup";
 import { StreamIcon } from "./icons";
 
-/** How long the copy popup stays up before auto-hiding, per spec (10s). */
-const POPUP_MS = 10000;
+/** How long the popup lingers before auto-hiding. Generous: it holds the code. */
+const POPUP_MS = 20000;
 
 export default function StreamButton() {
+  const phase = useStreamStore((s) => s.phase);
   const roomId = useStreamStore((s) => s.roomId);
   const start = useStreamStore((s) => s.start);
-  const stop = useStreamStore((s) => s.stop);
 
   const btnRef = useRef<HTMLButtonElement>(null);
   const timerRef = useRef<number | undefined>(undefined);
   const [popup, setPopup] = useState<{ x: number; y: number } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const live = phase === "live";
   const link = roomId ? `${window.location.origin}/?watch=${roomId}` : "";
 
   function armAutoHide(ms: number) {
@@ -23,35 +24,29 @@ export default function StreamButton() {
     timerRef.current = window.setTimeout(() => setPopup(null), ms);
   }
 
-  function openPopup() {
+  function handleClick() {
     const r = btnRef.current?.getBoundingClientRect();
     if (r) setPopup({ x: r.left, y: r.bottom + 8 });
     setCopied(false);
     armAutoHide(POPUP_MS);
-  }
-
-  function handleClick() {
-    if (!roomId) start();
-    openPopup();
+    if (phase === "off") void start();
   }
 
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
-      armAutoHide(1500);
+      armAutoHide(POPUP_MS);
     } catch {
       // Clipboard can be blocked (e.g. insecure context); keep the popup open.
       armAutoHide(POPUP_MS);
     }
   }
 
-  function handleStop() {
-    if (roomId) removeStream(roomId).catch(() => {});
-    stop();
-    setPopup(null);
-    window.clearTimeout(timerRef.current);
-  }
+  // Stopping mid-popup would otherwise leave an empty code panel on screen.
+  useEffect(() => {
+    if (phase === "off") setPopup(null);
+  }, [phase]);
 
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
@@ -59,26 +54,19 @@ export default function StreamButton() {
     <>
       <button
         ref={btnRef}
-        className={`toolbar__btn toolbar__stream ${roomId ? "toolbar__stream--live" : ""}`}
+        className={`toolbar__btn toolbar__stream ${live ? "toolbar__stream--live" : ""}`}
         onClick={handleClick}
         title={
-          roomId
-            ? "Streaming live — click to copy the link again"
-            : "Stream this map live to a shareable link"
+          live ? "Streaming live — click to see the code again" : "Stream this map to a /live screen"
         }
       >
         <StreamIcon />
-        {roomId ? "Live" : "Stream"}
+        {live ? "Live" : "Stream"}
       </button>
 
       {popup && (
         <div className="stream-popup" style={{ left: popup.x, top: popup.y }}>
-          <button className="stream-popup__copy" onClick={copyLink}>
-            {copied ? "Copied!" : "Tap to copy link"}
-          </button>
-          <button className="stream-popup__stop" onClick={handleStop}>
-            Stop streaming
-          </button>
+          <StreamPopup onCopyLink={copyLink} copied={copied} />
         </div>
       )}
     </>

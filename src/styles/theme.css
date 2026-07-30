@@ -656,6 +656,82 @@ button {
   color: var(--danger);
 }
 
+.stream-popup__state,
+.stream-popup__error,
+.stream-popup__note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  max-width: 250px;
+  padding: 6px 10px 4px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.stream-popup__error {
+  color: var(--target);
+}
+
+.stream-popup__note {
+  padding-top: 0;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.stream-popup__spinner {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-2);
+  border-radius: 50%;
+  animation: stream-spin 0.7s linear infinite;
+}
+
+@keyframes stream-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The join code, big enough to read off this screen and type on another. */
+.stream-popup__code {
+  display: flex;
+  gap: 4px;
+  padding: 0 6px 6px;
+}
+
+.stream-popup__code-char {
+  min-width: 26px;
+  padding: 6px 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stream-popup__retry {
+  padding: 5px 14px;
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.stream-popup__retry:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
 /* ---------- Watch (spectator) view ---------- */
 .watch {
   position: relative;
@@ -720,6 +796,147 @@ button {
   color: var(--text-dim);
   font-size: 13px;
   font-weight: 400;
+}
+
+/* ---------- /live display page ---------- */
+.live {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* While streaming, StreamMap owns the whole viewport. */
+.live--streaming {
+  display: block;
+}
+
+.live__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 520px;
+  padding: 32px 36px;
+  text-align: center;
+}
+
+.live__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.live__status {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.live__hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.live__warn {
+  margin: 0;
+  font-size: 13px;
+  color: var(--target);
+}
+
+/* Six boxes drawn over one real input — the input stays focusable and paste-able
+   but is invisible, so the boxes are purely presentational. */
+.live__code-form {
+  position: relative;
+}
+
+.live__code-field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 16px; /* keeps iOS from zooming on focus */
+  cursor: pointer;
+}
+
+.live__code-field:focus {
+  outline: none;
+}
+
+.live__code {
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.live__code-char {
+  min-width: 52px;
+  padding: 10px 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Stands in for the caret, which is hidden along with the real input. */
+.live__code-char--active {
+  border-color: var(--accent-2);
+  background: var(--panel-2);
+}
+
+.live__code-char:empty::after {
+  content: "·";
+  color: var(--border);
+}
+
+.live__cancel {
+  padding: 7px 18px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.live__cancel:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.live__disconnect {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  padding: 7px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.live__disconnect:hover {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
 /* ---------- Map loading overlay ---------- */

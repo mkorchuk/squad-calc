@@ -1,9 +1,31 @@
 {
   "rules": {
+    ".read": false,
+    ".write": false,
+
     "rooms": {
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "$roomId.matches(/^[a-zA-Z0-9_-]{6,32}$/)",
+        ".validate": "newData.hasChildren(['mapId', 'updatedAt'])",
+        "mapId": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "sessionName": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "updatedAt": { ".validate": "newData.isNumber()" },
+        "mortar": { ".validate": "newData.hasChildren(['lat', 'lng'])" },
+        "targets": { ".validate": "newData.hasChildren()" },
+        "shapes": { ".validate": "newData.hasChildren()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "codes": {
+      "$code": {
+        ".read": "$code.matches(/^[0-9]{6}$/)",
+        ".write": "$code.matches(/^[0-9]{6}$/)",
+        ".validate": "newData.hasChildren(['roomId'])",
+        "roomId": { ".validate": "newData.isString() && newData.val().length <= 32" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
       }
     }
   }

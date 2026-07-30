@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "fetch-maps": "node scripts/fetch-maps.mjs",
-    "deploy": "npm run fetch-maps && npm run build && firebase deploy --only hosting"
+    "deploy": "npm run fetch-maps && npm run build && firebase deploy --only hosting,database"
   },
   "dependencies": {
     "firebase": "^12.16.0",
