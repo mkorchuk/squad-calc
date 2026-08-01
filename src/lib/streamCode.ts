@@ -9,8 +9,7 @@
  * Codes are transient: `codes/{code}` is removed on Stop and by `onDisconnect`,
  * and any entry older than CODE_TTL_MS can be re-claimed by a new host.
  */
-import { get, onDisconnect, ref, remove, runTransaction } from "firebase/database";
-import { db } from "./firebase";
+import { firebase } from "./firebase";
 
 /** A claim this old is treated as abandoned — its host is long gone. */
 const CODE_TTL_MS = 12 * 60 * 60 * 1000;
@@ -41,6 +40,7 @@ export function isCompleteCode(code: string): boolean {
  * the same moment can't end up sharing a code.
  */
 export async function claimStreamCode(roomId: string): Promise<string> {
+  const { db, ref, runTransaction } = await firebase();
   for (let i = 0; i < CLAIM_ATTEMPTS; i++) {
     const code = makeStreamCode();
     const res = await runTransaction(ref(db, codePath(code)), (current) => {
@@ -58,10 +58,13 @@ export async function claimStreamCode(roomId: string): Promise<string> {
 
 /** Free the code the moment the host tab dies, so it can be handed out again. */
 export function releaseCodeOnDisconnect(code: string): void {
-  onDisconnect(ref(db, codePath(code))).remove();
+  void firebase()
+    .then(({ db, ref, onDisconnect }) => onDisconnect(ref(db, codePath(code))).remove())
+    .catch((err) => console.error("Arming code cleanup failed:", err));
 }
 
 export async function releaseStreamCode(code: string): Promise<void> {
+  const { db, ref, remove, onDisconnect } = await firebase();
   try {
     await onDisconnect(ref(db, codePath(code))).cancel();
   } catch {
@@ -72,6 +75,7 @@ export async function releaseStreamCode(code: string): Promise<void> {
 
 /** Display side: turn a typed code into the room it points at. */
 export async function lookupStreamCode(code: string): Promise<string | null> {
+  const { db, ref, get } = await firebase();
   const snap = await get(ref(db, codePath(code)));
   const v = snap.val();
   return v && typeof v.roomId === "string" ? v.roomId : null;

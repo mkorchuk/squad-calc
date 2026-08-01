@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 import { Marker, Polygon, Popup } from "react-leaflet";
 import L, { type Marker as LeafletMarker } from "leaflet";
 import { useAppStore } from "../../store/useAppStore";
@@ -32,7 +32,7 @@ interface Props {
   heightmap: HeightGrid | null;
 }
 
-export default function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
+function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
   const moveTarget = useAppStore((s) => s.moveTarget);
   const removeTarget = useAppStore((s) => s.removeTarget);
   const showSpread = useAppStore((s) => s.showSpread);
@@ -50,6 +50,14 @@ export default function TargetMarker({ target, index, mortar, map, heightmap }: 
     const spread = getSpread(distance, STANDARD_MORTAR, heightDiff);
     return { distance, bearing, elevation, spread, mortarAlt, targetAlt, heightDiff };
   }, [mortar, target, heightmap, map]);
+
+  // 48 points per target; memoised so react-leaflet doesn't setLatLngs on every
+  // render, and so a screen full of spread circles isn't rebuilt needlessly.
+  const spreadRing = useMemo(
+    () =>
+      solution?.spread ? spreadEllipse(target, solution.spread, solution.bearing) : null,
+    [solution, target]
+  );
 
   const icon = useMemo(
     () =>
@@ -109,10 +117,10 @@ export default function TargetMarker({ target, index, mortar, map, heightmap }: 
 
   return (
     <>
-      {showSpread && solution?.spread && (
+      {showSpread && spreadRing && (
         <Polygon
           ref={spreadRef}
-          positions={spreadEllipse(target, solution.spread, solution.bearing)}
+          positions={spreadRing}
           pane="spread"
           pathOptions={SPREAD_STYLE}
         />
@@ -180,3 +188,10 @@ export default function TargetMarker({ target, index, mortar, map, heightmap }: 
     </>
   );
 }
+
+/**
+ * Memoised because the Space tool can place hundreds of these: `updateActive`
+ * replaces only the target it touched, so moving or removing one leaves every
+ * other marker's props identical and skips its re-render entirely.
+ */
+export default memo(TargetMarker);

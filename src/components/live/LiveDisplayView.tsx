@@ -5,11 +5,27 @@ import { useLiveDisplay } from "../../hooks/useLiveDisplay";
 import StreamMap, { LiveBanner } from "../watch/StreamMap";
 
 /** Six single-character boxes that behave like one input. */
-function CodeInput({ onSubmit, busy }: { onSubmit: (code: string) => void; busy: boolean }) {
+function CodeInput({
+  onSubmit,
+  busy,
+  error,
+}: {
+  onSubmit: (code: string) => void;
+  busy: boolean;
+  /** Clears the boxes, so a rejected code doesn't have to be backspaced out. */
+  error: string | null;
+}) {
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => inputRef.current?.focus(), []);
+
+  useEffect(() => {
+    if (error) {
+      setValue("");
+      inputRef.current?.focus();
+    }
+  }, [error]);
 
   // Typing the sixth digit is unambiguous intent — don't also make them hit Enter.
   function update(raw: string) {
@@ -97,7 +113,7 @@ export default function LiveDisplayView() {
                   ? "Stream ended"
                   : "Not connected"}
             </p>
-            <CodeInput onSubmit={join} busy={phase === "joining"} />
+            <CodeInput onSubmit={join} busy={phase === "joining"} error={error} />
             <p className="live__hint">
               On your planning PC, press <strong>Stream</strong> and type the 6-digit code it
               shows here.

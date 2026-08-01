@@ -18,6 +18,11 @@ export const MAX_FILL_POINTS = 400;
  * within half a step of `spacing`.
  */
 export function pointsAlongLine(a: Point, b: Point, spacing: number): Point[] {
+  // A non-positive spacing would make `segments` Infinity and hang the tab, so
+  // it degenerates to a single point instead. The manual spacing is clamped in
+  // the store, but the Space tool derives its own from the spread radius.
+  if (!(spacing > 0)) return [{ lat: a.lat, lng: a.lng }];
+
   const length = Math.hypot(b.lng - a.lng, b.lat - a.lat);
   if (length < spacing / 2) return [{ lat: a.lat, lng: a.lng }];
 
@@ -39,7 +44,9 @@ export function pointsAlongLine(a: Point, b: Point, spacing: number): Point[] {
  * sits `spacing` from its nearest neighbours in every direction.
  */
 export function pointsInPolygon(vertices: Point[], spacing: number): Point[] {
-  if (vertices.length < 3) return [];
+  // Same reason as pointsAlongLine: a zero/negative step never advances the
+  // column loop, which would freeze the tab rather than fail.
+  if (vertices.length < 3 || !(spacing > 0)) return [];
 
   const lats = vertices.map((v) => v.lat);
   const lngs = vertices.map((v) => v.lng);

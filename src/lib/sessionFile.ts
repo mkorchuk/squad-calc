@@ -9,6 +9,7 @@
  * the same way it does for targets.
  */
 import { MAPS, DEFAULT_MAP_ID } from "../data/maps";
+import { isHexColor } from "../data/shapeColors";
 import type { Session, ShapeInput } from "../store/types";
 
 const FILE_FORMAT = "squadcalc-session";
@@ -43,17 +44,22 @@ function isFinitePoint(v: unknown): v is { lat: number; lng: number } {
   return typeof p.lat === "number" && typeof p.lng === "number" && Number.isFinite(p.lat) && Number.isFinite(p.lng);
 }
 
-/** Drops anything that isn't a well-formed shape, mirroring the target handling. */
+/**
+ * Drops anything that isn't a well-formed shape, mirroring the target handling.
+ * A missing or non-hex `color` is dropped rather than rejecting the shape —
+ * files written before colours existed have none, and the renderer defaults it.
+ */
 function toShapeInput(v: unknown): ShapeInput | null {
   if (!v || typeof v !== "object") return null;
   const s = v as Record<string, unknown>;
+  const color = isHexColor(s.color) ? { color: s.color } : {};
   if (s.type === "circle") {
     if (!isFinitePoint(s.center) || typeof s.radius !== "number" || !Number.isFinite(s.radius)) return null;
-    return { type: "circle", center: { lat: s.center.lat, lng: s.center.lng }, radius: s.radius };
+    return { type: "circle", center: { lat: s.center.lat, lng: s.center.lng }, radius: s.radius, ...color };
   }
   if (s.type === "line" || s.type === "rect") {
     if (!isFinitePoint(s.a) || !isFinitePoint(s.b)) return null;
-    return { type: s.type, a: { lat: s.a.lat, lng: s.a.lng }, b: { lat: s.b.lat, lng: s.b.lng } };
+    return { type: s.type, a: { lat: s.a.lat, lng: s.a.lng }, b: { lat: s.b.lat, lng: s.b.lng }, ...color };
   }
   return null;
 }

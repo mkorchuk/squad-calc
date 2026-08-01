@@ -109,15 +109,20 @@ export default function MapGrid({ map }: { map: MapDefinition }) {
   // below the mortar/target markers (markerPane, 600).
   return (
     <Pane name="grid" style={{ zIndex: 450, pointerEvents: "none" }}>
-      <Polyline
-        positions={fineLines}
-        pathOptions={{
-          color: "#000",
-          weight: 0.4,
-          opacity: fineVisible ? 0.33 * gridOpacity : 0,
-          interactive: false,
-        }}
-      />
+      {/* Unmounted rather than drawn at opacity 0: it's the densest tier by far
+          (hundreds of segments Leaflet would otherwise re-project on every pan
+          and zoom) and it's hidden at most zoom levels. */}
+      {fineVisible && (
+        <Polyline
+          positions={fineLines}
+          pathOptions={{
+            color: "#000",
+            weight: 0.4,
+            opacity: 0.33 * gridOpacity,
+            interactive: false,
+          }}
+        />
+      )}
       <Polyline
         positions={subLines}
         pathOptions={{

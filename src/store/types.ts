@@ -17,11 +17,19 @@ interface ShapePoint {
   lng: number;
 }
 
+/**
+ * Hex stroke/fill colour, chosen from the draw menu's palette. Optional because
+ * shapes drawn before colours existed (persisted sessions, older session files)
+ * have none — those render as DEFAULT_SHAPE_COLOR.
+ */
+type ShapeColor = string | undefined;
+
 export interface LineShape {
   id: string;
   type: "line";
   a: ShapePoint;
   b: ShapePoint;
+  color?: ShapeColor;
 }
 
 export interface RectShape {
@@ -29,6 +37,7 @@ export interface RectShape {
   type: "rect";
   a: ShapePoint;
   b: ShapePoint;
+  color?: ShapeColor;
 }
 
 export interface CircleShape {
@@ -36,6 +45,7 @@ export interface CircleShape {
   type: "circle";
   center: ShapePoint;
   radius: number;
+  color?: ShapeColor;
 }
 
 export type Shape = LineShape | RectShape | CircleShape;

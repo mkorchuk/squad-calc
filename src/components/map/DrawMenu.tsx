@@ -1,3 +1,5 @@
+import { SHAPE_COLORS } from "../../data/shapeColors";
+import { useAppStore } from "../../store/useAppStore";
 import type { ShapeType } from "../../store/types";
 
 interface Props {
@@ -40,10 +42,13 @@ const ITEMS: { type: ShapeType; label: string; icon: JSX.Element }[] = [
 ];
 
 /** Menu width/height estimates, used only to keep it inside the viewport. */
-const W = 130;
-const H = 118;
+const W = 142;
+const H = 158;
 
 export default function DrawMenu({ x, y, onPick, onClose }: Props) {
+  const shapeColor = useAppStore((s) => s.shapeColor);
+  const setShapeColor = useAppStore((s) => s.setShapeColor);
+
   const left = Math.min(x, window.innerWidth - W - 8);
   const top = Math.min(y, window.innerHeight - H - 8);
 
@@ -58,10 +63,32 @@ export default function DrawMenu({ x, y, onPick, onClose }: Props) {
         }}
       />
       <div className="draw-menu" style={{ left, top }}>
+        {/* Colour first: it applies to the shape you're about to pick, and it
+            sticks for later shapes too, so the menu doesn't close on a swatch. */}
+        <div className="draw-menu__label">Colour</div>
+        <div className="draw-menu__colors">
+          {SHAPE_COLORS.map((c) => (
+            <button
+              key={c.value}
+              className={`draw-menu__color ${
+                c.value === shapeColor ? "draw-menu__color--active" : ""
+              }`}
+              style={{ background: c.value }}
+              onClick={() => setShapeColor(c.value)}
+              title={c.name}
+              aria-label={c.name}
+              aria-pressed={c.value === shapeColor}
+            />
+          ))}
+        </div>
+
         <div className="draw-menu__label">Draw</div>
         {ITEMS.map((it) => (
           <button key={it.type} className="draw-menu__item" onClick={() => onPick(it.type)}>
-            {it.icon}
+            {/* Icon takes the selected colour, so the menu previews what you'll get. */}
+            <span className="draw-menu__item-icon" style={{ color: shapeColor }}>
+              {it.icon}
+            </span>
             {it.label}
           </button>
         ))}

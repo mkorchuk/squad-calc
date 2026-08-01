@@ -21,9 +21,16 @@ export default function MortarMarker({ mortar, map, heightmap }: Props) {
   const moveMortar = useAppStore((s) => s.moveMortar);
   const clearMortar = useAppStore((s) => s.clearMortar);
   const ref = useRef<LeafletMarker>(null);
+  const rangeRef = useRef<L.Circle>(null);
 
   const handlers = useMemo(
     () => ({
+      // The store only learns the new position on drop, so the range circle is
+      // moved directly here — otherwise it hangs behind the marker mid-drag.
+      drag() {
+        const m = ref.current;
+        if (m) rangeRef.current?.setLatLng(m.getLatLng());
+      },
       dragend() {
         const m = ref.current;
         if (!m) return;
@@ -41,6 +48,7 @@ export default function MortarMarker({ mortar, map, heightmap }: Props) {
   return (
     <>
       <Circle
+        ref={rangeRef}
         center={[mortar.lat, mortar.lng]}
         radius={MAX_RANGE}
         pathOptions={{

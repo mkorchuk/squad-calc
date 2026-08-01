@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   MAX_LABEL_SCALE,
   MAX_SPACING,
@@ -6,44 +6,7 @@ import {
   MIN_SPACING,
   useAppStore,
 } from "../../store/useAppStore";
-import type { TargetTool } from "../../store/types";
-import { LineIcon, SingleIcon, SpaceIcon } from "../icons";
-
-const TOOLS: { tool: TargetTool; key: string; label: string; icon: ReactNode; hint: string }[] = [
-  {
-    tool: "single",
-    key: "1",
-    label: "Single",
-    icon: <SingleIcon />,
-    hint: "Each click places one target",
-  },
-  {
-    tool: "line",
-    key: "2",
-    label: "Line",
-    icon: <LineIcon />,
-    hint: "Click to start, click again to end — targets fill the line",
-  },
-  {
-    tool: "space",
-    key: "3",
-    label: "Space",
-    icon: <SpaceIcon />,
-    hint: "Click each corner, click the first one again to close — targets fill the area",
-  },
-];
-
-/** True while the user is typing, so tool hotkeys don't hijack the keystroke. */
-function isTyping(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  return (
-    el.tagName === "INPUT" ||
-    el.tagName === "TEXTAREA" ||
-    el.tagName === "SELECT" ||
-    el.isContentEditable
-  );
-}
+import { TOOL_META, hotkeyFor } from "../toolMeta";
 
 export default function ToolPanel() {
   const tool = useAppStore((s) => s.targetTool);
@@ -68,30 +31,23 @@ export default function ToolPanel() {
     else setDraftSpacing(String(spacing));
   }
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
-      const match = TOOLS.find((t) => t.key === e.key);
-      if (match) setTool(match.tool);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setTool]);
+  // The 1/2/3 hotkeys are bound in Layout (useToolHotkeys), not here — this
+  // panel unmounts when the sidebar is hidden.
 
   return (
     <>
       <div className="sidebar__section-label">Target tool</div>
       <div className="tool-row">
-        {TOOLS.map((t) => (
+        {TOOL_META.map((t) => (
           <button
             key={t.tool}
             className={`tool-btn ${tool === t.tool ? "tool-btn--active" : ""}`}
             onClick={() => setTool(t.tool)}
-            title={`${t.hint} (${t.key})`}
+            title={`${t.hint} (${hotkeyFor(t.tool)})`}
           >
             {t.icon}
             <span className="tool-btn__label">{t.label}</span>
-            <span className="tool-btn__key">{t.key}</span>
+            <span className="tool-btn__key">{hotkeyFor(t.tool)}</span>
           </button>
         ))}
       </div>
@@ -116,7 +72,7 @@ export default function ToolPanel() {
       </label>
 
       <p className="tool-hint">
-        {TOOLS.find((t) => t.tool === tool)?.hint}
+        {TOOL_META.find((t) => t.tool === tool)?.hint}
         {tool === "space" &&
           " Spacing is sized automatically from the mortar's spread radius, so targets tile to cover the area."}
       </p>

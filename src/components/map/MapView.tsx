@@ -18,6 +18,7 @@ import { STANDARD_MORTAR } from "../../data/weapons";
 import { getDistance, getSpread } from "../../lib/ballistics";
 import { boundsFor, latLngBoundsFor } from "../../lib/mapBounds";
 import { loadHeightmap, sampleHeight, type HeightGrid } from "../../lib/heightmap";
+import { shapeAtPoint } from "../../lib/shapeHit";
 import { MAX_FILL_POINTS, pointsAlongLine, pointsInPolygon } from "../../lib/targetFill";
 import type { Point } from "../../lib/targetFill";
 import { useHeightmap } from "../../hooks/useHeightmap";
@@ -55,24 +56,31 @@ const CLOSE_PX = 12;
 /** A drag shorter than this (screen px) is treated as a mis-click, not a shape. */
 const MIN_DRAW_PX = 6;
 
+/** Swaps the map's crosshair for a pointer while the cursor is over a shape. */
+const OVER_SHAPE_CLASS = "map--over-shape";
+
 const DRAFT_STYLE = { color: "#e0603a", weight: 2, dashArray: "5 5" };
 
-const SHAPE_PREVIEW = {
-  color: "#f0c040",
-  weight: 2,
-  dashArray: "5 5",
-  fillColor: "#f0c040",
-  fillOpacity: 0.05,
-  interactive: false,
-};
+/** Dashed preview of the shape being dragged out, in the colour it'll be drawn in. */
+function shapePreviewStyle(color: string) {
+  return {
+    color,
+    weight: 2,
+    dashArray: "5 5",
+    fillColor: color,
+    fillOpacity: 0.05,
+    interactive: false,
+  };
+}
 
 function radiusBetween(a: Point, b: Point): number {
   return Math.hypot(b.lat - a.lat, b.lng - a.lng);
 }
 
-function buildShape(type: ShapeType, start: Point, end: Point): ShapeInput {
-  if (type === "circle") return { type: "circle", center: start, radius: radiusBetween(start, end) };
-  return { type, a: start, b: end };
+function buildShape(type: ShapeType, start: Point, end: Point, color: string): ShapeInput {
+  if (type === "circle")
+    return { type: "circle", center: start, radius: radiusBetween(start, end), color };
+  return { type, a: start, b: end, color };
 }
 
 /**
@@ -108,10 +116,13 @@ function MapController({
   const spacing = useAppStore((s) => s.spacing);
   const activeSessionId = useAppStore((s) => s.activeSessionId);
   const mortar = useAppStore((s) => s.getActiveSession()?.mortar ?? null);
+  const shapes = useAppStore((s) => s.getActiveSession()?.shapes);
+  const shapeColor = useAppStore((s) => s.shapeColor);
   const setMortar = useAppStore((s) => s.setMortar);
   const addTarget = useAppStore((s) => s.addTarget);
   const addTargets = useAppStore((s) => s.addTargets);
   const addShape = useAppStore((s) => s.addShape);
+  const removeShape = useAppStore((s) => s.removeShape);
 
   const [draft, setDraft] = useState<Point[]>([]);
   const [cursor, setCursor] = useState<Point | null>(null);
@@ -121,6 +132,27 @@ function MapController({
   const [drawEnd, setDrawEnd] = useState<Point | null>(null);
   // mouseup fires a trailing click; this suppresses it so a draw doesn't also place a target.
   const suppressClick = useRef(false);
+  // Whether the cursor is currently over a shape outline, so the class is only
+  // touched on a change rather than on every mousemove.
+  const overShape = useRef(false);
+
+  /** Shows the pointer ("hand") cursor while over a shape, where right-click deletes it. */
+  const setOverShape = useCallback(
+    (over: boolean) => {
+      if (overShape.current === over) return;
+      overShape.current = over;
+      map.getContainer().classList.toggle(OVER_SHAPE_CLASS, over);
+    },
+    [map]
+  );
+
+  // A hidden/removed shape must not leave the cursor stuck as a hand.
+  useEffect(
+    () => () => {
+      map.getContainer().classList.remove(OVER_SHAPE_CLASS);
+    },
+    [map]
+  );
 
   const resetDraft = useCallback(() => {
     setDraft([]);
@@ -132,6 +164,7 @@ function MapController({
     if (armed) {
       map.dragging.disable();
       resetDraft();
+      setOverShape(false);
     } else {
       map.dragging.enable();
       setDrawStart(null);
@@ -140,7 +173,7 @@ function MapController({
     return () => {
       map.dragging.enable();
     };
-  }, [armed, map, resetDraft]);
+  }, [armed, map, resetDraft, setOverShape]);
 
   useEffect(() => {
     const bounds = latLngBoundsFor(getMap(mapId));
@@ -218,6 +251,16 @@ function MapController({
       // Right-clicking a marker keeps its own remove behavior; don't open the menu there.
       const el = oe.target as HTMLElement | null;
       if (el && el.closest(".leaflet-marker-icon")) return;
+
+      // Shapes are non-interactive layers (so they never swallow a placement
+      // click), so the hit test happens here rather than on the layer itself.
+      const hit = shapeAtPoint(map, shapes ?? [], e.containerPoint);
+      if (hit) {
+        removeShape(hit.id);
+        setOverShape(false); // it's gone; don't leave the cursor as a hand
+        return;
+      }
+
       onOpenMenu(oe.clientX, oe.clientY);
     },
     mousedown(e) {
@@ -232,7 +275,8 @@ function MapController({
       const end: Point = { lat: e.latlng.lat, lng: e.latlng.lng };
       const startPx = map.latLngToContainerPoint([drawStart.lat, drawStart.lng]);
       const endPx = map.latLngToContainerPoint([end.lat, end.lng]);
-      if (startPx.distanceTo(endPx) >= MIN_DRAW_PX) addShape(buildShape(armed, drawStart, end));
+      if (startPx.distanceTo(endPx) >= MIN_DRAW_PX)
+        addShape(buildShape(armed, drawStart, end, shapeColor));
       suppressClick.current = true;
       onFinishArmed();
     },
@@ -272,8 +316,15 @@ function MapController({
       const p: Point = { lat: e.latlng.lat, lng: e.latlng.lng };
       if (armed && drawStart) setDrawEnd(p);
       else if (draft.length) setCursor(p);
+      // While a shape tool is armed the cursor belongs to drawing, not deleting.
+      setOverShape(!armed && !!shapeAtPoint(map, shapes ?? [], e.containerPoint));
+    },
+    mouseout() {
+      setOverShape(false);
     },
   });
+
+  const previewStyle = shapePreviewStyle(shapeColor);
 
   const drawingPreview =
     armed && drawStart && drawEnd ? (
@@ -284,7 +335,7 @@ function MapController({
               [drawStart.lat, drawStart.lng],
               [drawEnd.lat, drawEnd.lng],
             ]}
-            pathOptions={SHAPE_PREVIEW}
+            pathOptions={previewStyle}
           />
         )}
         {armed === "rect" && (
@@ -293,18 +344,19 @@ function MapController({
               [drawStart.lat, drawStart.lng],
               [drawEnd.lat, drawEnd.lng],
             ]}
-            pathOptions={SHAPE_PREVIEW}
+            pathOptions={previewStyle}
           />
         )}
         {armed === "circle" && (
           <Circle
             center={[drawStart.lat, drawStart.lng]}
             radius={radiusBetween(drawStart, drawEnd)}
-            pathOptions={SHAPE_PREVIEW}
+            pathOptions={previewStyle}
           />
         )}
       </Pane>
     ) : null;
+
 
   if (!draft.length) return drawingPreview;
 

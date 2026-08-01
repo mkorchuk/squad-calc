@@ -143,6 +143,46 @@ button {
   transform: rotate(-90deg);
 }
 
+/* Transient "you're on tool X" badge, sitting under the show-sidebar button. */
+.tool-indicator {
+  position: absolute;
+  top: 94px;
+  left: 12px;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  animation: tool-indicator-in 120ms ease-out;
+}
+
+.tool-indicator__key {
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+@keyframes tool-indicator-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .sidebar__subtitle {
   margin: 2px 0 0;
   font-size: 11px;
@@ -282,6 +322,142 @@ button {
   background: var(--import-blue-2);
 }
 
+/* ---------- Sidebar bottom bar (changelog) ---------- */
+.sidebar__bottom {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border);
+  padding: 6px 10px;
+}
+
+.sidebar__changelog-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.sidebar__changelog-btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+/* ---------- Modal (changelog) ---------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.modal {
+  width: min(560px, 100%);
+  max-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.modal__close {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.modal__close:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.modal__body {
+  padding: 4px 14px 14px;
+  overflow-y: auto;
+}
+
+.changelog__entry {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.changelog__entry:last-child {
+  border-bottom: none;
+}
+
+.changelog__version-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.changelog__version {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-2);
+}
+
+.changelog__badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.changelog__entry-title {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.changelog__list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.changelog__list li {
+  margin-bottom: 3px;
+}
+
 /* ---------- Right-click draw menu ---------- */
 .draw-menu__backdrop {
   position: fixed;
@@ -308,6 +484,31 @@ button {
   color: var(--text-dim);
 }
 
+/* Colour palette above the shape list; picking a swatch leaves the menu open. */
+.draw-menu__colors {
+  display: flex;
+  gap: 4px;
+  padding: 0 8px 6px;
+}
+
+.draw-menu__color {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.draw-menu__color:hover {
+  transform: scale(1.12);
+}
+
+.draw-menu__color--active {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
 .draw-menu__item {
   display: flex;
   align-items: center;
@@ -320,6 +521,11 @@ button {
   color: var(--text);
   font-size: 13px;
   text-align: left;
+}
+
+.draw-menu__item-icon {
+  display: flex;
+  align-items: center;
 }
 
 .draw-menu__item:hover {
@@ -993,6 +1199,17 @@ button {
 .leaflet-grab,
 .leaflet-dragging .leaflet-grab {
   cursor: crosshair;
+}
+
+/* Over a drawn shape's outline, where right-click deletes it. Toggled from
+   MapController's mousemove hit test — the shape layers are non-interactive,
+   so they can't drive the cursor themselves. Needs the same explicit
+   svg/path/grab selectors to out-specify the crosshair rule above. */
+.leaflet-container.map--over-shape,
+.leaflet-container.map--over-shape svg,
+.leaflet-container.map--over-shape path,
+.leaflet-container.map--over-shape .leaflet-grab {
+  cursor: pointer;
 }
 
 /* Markers stay draggable, so show a move cursor over them */

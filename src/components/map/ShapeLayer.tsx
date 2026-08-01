@@ -1,16 +1,29 @@
+import { useMemo } from "react";
 import { Circle, Polyline, Rectangle } from "react-leaflet";
+import { DEFAULT_SHAPE_COLOR } from "../../data/shapeColors";
 import type { Shape } from "../../store/types";
 
-/** Amber, non-interactive so clicks fall through to the map for target placement. */
-export const SHAPE_STYLE = {
-  color: "#f0c040",
-  weight: 2,
-  fillColor: "#f0c040",
-  fillOpacity: 0.08,
-  interactive: false,
-};
+/**
+ * Non-interactive so clicks fall through to the map for target placement —
+ * deleting a shape goes through MapController's contextmenu hit test instead.
+ * Colour comes from the shape; pre-colour shapes fall back to amber.
+ */
+export function shapeStyle(color: string | undefined) {
+  const stroke = color ?? DEFAULT_SHAPE_COLOR;
+  return {
+    color: stroke,
+    weight: 2,
+    fillColor: stroke,
+    fillOpacity: 0.08,
+    interactive: false,
+  };
+}
 
 export default function ShapeLayer({ shape }: { shape: Shape }) {
+  // Memoised because react-leaflet re-applies pathOptions whenever the object
+  // identity changes, which would otherwise be every render.
+  const style = useMemo(() => shapeStyle(shape.color), [shape.color]);
+
   if (shape.type === "line") {
     return (
       <Polyline
@@ -18,7 +31,7 @@ export default function ShapeLayer({ shape }: { shape: Shape }) {
           [shape.a.lat, shape.a.lng],
           [shape.b.lat, shape.b.lng],
         ]}
-        pathOptions={SHAPE_STYLE}
+        pathOptions={style}
       />
     );
   }
@@ -29,11 +42,11 @@ export default function ShapeLayer({ shape }: { shape: Shape }) {
           [shape.a.lat, shape.a.lng],
           [shape.b.lat, shape.b.lng],
         ]}
-        pathOptions={SHAPE_STYLE}
+        pathOptions={style}
       />
     );
   }
   return (
-    <Circle center={[shape.center.lat, shape.center.lng]} radius={shape.radius} pathOptions={SHAPE_STYLE} />
+    <Circle center={[shape.center.lat, shape.center.lng]} radius={shape.radius} pathOptions={style} />
   );
 }

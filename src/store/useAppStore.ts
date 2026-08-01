@@ -1,6 +1,8 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { throttledLocalStorage } from "./persistStorage";
 import { DEFAULT_MAP_ID } from "../data/maps";
+import { DEFAULT_SHAPE_COLOR, isHexColor } from "../data/shapeColors";
 import type { ImportedSession } from "../lib/sessionFile";
 import type { PlacementMode, Session, ShapeInput, TargetMark, TargetTool } from "./types";
 
@@ -43,6 +45,8 @@ interface AppState {
   /** Whether to draw the mortar spread (dispersion) circle around each target. */
   showSpread: boolean;
   sidebarVisible: boolean;
+  /** Colour the next drawn shape gets, picked in the draw menu's palette. */
+  shapeColor: string;
 
   getActiveSession: () => Session | undefined;
 
@@ -58,6 +62,7 @@ interface AppState {
   setSpacing: (spacing: number) => void;
   setGridOpacity: (opacity: number) => void;
   setLabelScale: (scale: number) => void;
+  setShapeColor: (color: string) => void;
   toggleSpread: () => void;
   toggleSidebar: () => void;
 
@@ -69,6 +74,7 @@ interface AppState {
   clearMortar: () => void;
   removeTarget: (id: string) => void;
   addShape: (shape: ShapeInput) => void;
+  removeShape: (id: string) => void;
   clearMarks: () => void;
 }
 
@@ -91,6 +97,7 @@ export const useAppStore = create<AppState>()(
         labelScale: DEFAULT_LABEL_SCALE,
         showSpread: false,
         sidebarVisible: true,
+        shapeColor: DEFAULT_SHAPE_COLOR,
 
         getActiveSession: () =>
           get().sessions.find((s) => s.id === get().activeSessionId),
@@ -160,6 +167,11 @@ export const useAppStore = create<AppState>()(
 
         setLabelScale: (scale) => set({ labelScale: clampLabelScale(scale) }),
 
+        // Guarded rather than trusted: this value is written straight into an
+        // SVG stroke/fill attribute.
+        setShapeColor: (color) =>
+          set({ shapeColor: isHexColor(color) ? color : DEFAULT_SHAPE_COLOR }),
+
         toggleSpread: () => set((state) => ({ showSpread: !state.showSpread })),
 
         toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
@@ -222,6 +234,14 @@ export const useAppStore = create<AppState>()(
             })),
           })),
 
+        removeShape: (id) =>
+          set((state) => ({
+            sessions: updateActive(state, (s) => ({
+              ...s,
+              shapes: (s.shapes ?? []).filter((shape) => shape.id !== id),
+            })),
+          })),
+
         clearMarks: () =>
           set((state) => ({
             sessions: updateActive(state, (s) => ({
@@ -235,9 +255,15 @@ export const useAppStore = create<AppState>()(
     },
     {
       name: "squadcalc-lite",
-      // A build before the 100% cap could have persisted a larger scale.
+      // Writes are coalesced: persist re-serialises every session on every
+      // change, including each frame of a slider drag.
+      storage: createJSONStorage(() => throttledLocalStorage),
+      // A build before the 100% cap could have persisted a larger scale, and a
+      // build before colours existed persisted no shapeColor at all.
       onRehydrateStorage: () => (state) => {
-        if (state) state.labelScale = clampLabelScale(state.labelScale);
+        if (!state) return;
+        state.labelScale = clampLabelScale(state.labelScale);
+        if (!isHexColor(state.shapeColor)) state.shapeColor = DEFAULT_SHAPE_COLOR;
       },
     }
   )

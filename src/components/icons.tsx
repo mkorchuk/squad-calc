@@ -118,6 +118,26 @@ export function StreamIcon({ size = 13 }: IconProps) {
   );
 }
 
+export function ChangelogIcon({ size = 13 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 3h9l4 4v14H6z" />
+      <path d="M9 9h6" />
+      <path d="M9 13h6" />
+      <path d="M9 17h4" />
+    </svg>
+  );
+}
+
 export function ImportIcon({ size = 14 }: IconProps) {
   return (
     <svg

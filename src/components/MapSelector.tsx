@@ -6,13 +6,19 @@ export default function MapSelector() {
   const setMapId = useAppStore((s) => s.setMapId);
 
   const mapId = session?.mapId ?? MAPS[0].id;
-  const hasMarks = !!session && (session.mortar !== null || session.targets.length > 0);
+  // Shapes count as marks: setMapId clears them too, so a session holding only
+  // shapes must still get the warning.
+  const hasMarks =
+    !!session &&
+    (session.mortar !== null ||
+      session.targets.length > 0 ||
+      (session.shapes?.length ?? 0) > 0);
 
   function handleChange(nextId: string) {
     if (nextId === mapId) return;
     if (hasMarks) {
       const ok = window.confirm(
-        "Switching maps will clear the mortar and targets in this session. Continue?"
+        "Switching maps will clear the mortar, targets and shapes in this session. Continue?"
       );
       if (!ok) return;
     }

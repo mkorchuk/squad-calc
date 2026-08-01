@@ -16,6 +16,17 @@ export default function SessionItem({ session, active }: Props) {
 
   const mapName = getMap(session.mapId).name;
 
+  /** Deleting is irreversible and the ✕ sits next to Save, so a session with
+   *  work in it asks first. An empty one deletes straight away. */
+  function handleDelete() {
+    const marks =
+      (session.mortar ? 1 : 0) + session.targets.length + (session.shapes?.length ?? 0);
+    if (marks > 0 && !window.confirm(`Delete "${session.name}" and its ${marks} mark(s)?`)) {
+      return;
+    }
+    deleteSession(session.id);
+  }
+
   return (
     <div
       className={`session-item ${active ? "session-item--active" : ""}`}
@@ -44,7 +55,7 @@ export default function SessionItem({ session, active }: Props) {
         title="Delete session"
         onClick={(e) => {
           e.stopPropagation();
-          deleteSession(session.id);
+          handleDelete();
         }}
       >
         ✕
