@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import L from "leaflet";
 import { Marker, Pane, Polyline, useMapEvents } from "react-leaflet";
 import type { MapDefinition } from "../../data/maps";
-import { useAppStore } from "../../store/useAppStore";
 
 const KEYPAD = 300; // meters per keypad square (Squad standard)
 const SUB = 100; // meters per sub-keypad (100m)
@@ -31,10 +30,17 @@ function gridLabelIcon(text: string): L.DivIcon {
  * Squad keypad grid overlay, drawn from the map's top-left corner (0,0).
  * Three tiers, as in game: 300m keypad lines, 100m
  * sub-keypad lines, and a 33.33m fine tier shown only when zoomed in.
+ *
+ * `gridOpacity` is passed in rather than read from the store so the stream
+ * viewer can render the host's opacity instead of its own local setting.
  */
-export default function MapGrid({ map }: { map: MapDefinition }) {
-  const gridOpacity = useAppStore((s) => s.gridOpacity);
-
+export default function MapGrid({
+  map,
+  gridOpacity,
+}: {
+  map: MapDefinition;
+  gridOpacity: number;
+}) {
   const mapInstance = useMapEvents({
     zoomend: () => setZoom(mapInstance.getZoom()),
   });

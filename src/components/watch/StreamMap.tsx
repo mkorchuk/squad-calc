@@ -1,14 +1,15 @@
-import { useEffect, type ReactNode } from "react";
+import { Fragment, useEffect, type ReactNode } from "react";
 import { CRS } from "leaflet";
-import { ImageOverlay, MapContainer, Marker, Pane, useMap } from "react-leaflet";
+import { ImageOverlay, MapContainer, Marker, Pane, Polygon, useMap } from "react-leaflet";
 import { getMap } from "../../data/maps";
 import { boundsFor, latLngBoundsFor } from "../../lib/mapBounds";
 import { useHeightmap } from "../../hooks/useHeightmap";
 import { sampleHeight } from "../../lib/heightmap";
 import { STANDARD_MORTAR } from "../../data/weapons";
-import { getBearing, getDistance, getElevation } from "../../lib/ballistics";
+import { getBearing, getDistance, getElevation, getSpread, spreadEllipse } from "../../lib/ballistics";
 import type { StreamState } from "../../lib/stream";
 import { mortarIcon, targetIcon } from "../map/markerIcons";
+import { SPREAD_STYLE } from "../map/TargetMarker";
 import MapGrid from "../map/MapGrid";
 import ShapeLayer from "../map/ShapeLayer";
 
@@ -44,6 +45,17 @@ export default function StreamMap({
   const shapes = stream.shapes ?? [];
   const mortar = stream.mortar;
 
+  // Mirror the host's target-label font size. Set on the document root (not on
+  // MapContainer, whose style react-leaflet reads only once at mount) exactly as
+  // the planner's MapView does; the label CSS reads var(--label-scale).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--label-scale", String(stream.labelScale));
+    return () => {
+      root.style.removeProperty("--label-scale");
+    };
+  }, [stream.labelScale]);
+
   return (
     <div className="watch">
       {banner}
@@ -59,7 +71,7 @@ export default function StreamMap({
       >
         <FitBounds mapId={map.id} />
         <ImageOverlay key={map.id} url={map.image} bounds={boundsFor(map)} />
-        <MapGrid map={map} />
+        <MapGrid map={map} gridOpacity={stream.gridOpacity} />
 
         <Pane name="shapes" style={{ zIndex: 455, pointerEvents: "none" }}>
           {shapes.map((shape) => (
@@ -67,12 +79,19 @@ export default function StreamMap({
           ))}
         </Pane>
 
+        {/* Spread ellipses (below) render into this pane when the host has them
+            on. Same layering as the planner: above the map/grid, below markers.
+            Kept always-mounted so a polygon never resolves its pane before it
+            exists. */}
+        <Pane name="spread" style={{ zIndex: 452, pointerEvents: "none" }} />
+
         {mortar && (
           <Marker position={[mortar.lat, mortar.lng]} icon={mortarIcon} interactive={false} />
         )}
 
         {targets.map((t) => {
           let label: { mil: number | null; bearing: number | null } = { mil: null, bearing: null };
+          let spreadRing: [number, number][] | null = null;
           if (mortar) {
             const distance = getDistance(mortar, t);
             const bearing = getBearing(mortar, t);
@@ -81,14 +100,22 @@ export default function StreamMap({
               sampleHeight(heightmap, map, mortar.lat, mortar.lng);
             const elevation = getElevation(distance, STANDARD_MORTAR, heightDiff);
             label = { mil: elevation.inRange ? elevation.mil : null, bearing };
+            if (stream.showSpread) {
+              const spread = getSpread(distance, STANDARD_MORTAR, heightDiff);
+              if (spread) spreadRing = spreadEllipse(t, spread, bearing);
+            }
           }
           return (
-            <Marker
-              key={t.id}
-              position={[t.lat, t.lng]}
-              icon={targetIcon(label)}
-              interactive={false}
-            />
+            <Fragment key={t.id}>
+              {spreadRing && (
+                <Polygon positions={spreadRing} pane="spread" pathOptions={SPREAD_STYLE} />
+              )}
+              <Marker
+                position={[t.lat, t.lng]}
+                icon={targetIcon(label)}
+                interactive={false}
+              />
+            </Fragment>
           );
         })}
       </MapContainer>

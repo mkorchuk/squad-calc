@@ -10,6 +10,21 @@ export interface StreamState {
   shapes: Shape[];
   /** Active session's name, shown in the viewer banner. "" when unknown. */
   sessionName: string;
+  /** Host display settings, mirrored so viewers match the host's screen rather
+   *  than their own local defaults: target-label font size, grid opacity, and
+   *  whether the mortar spread circles are drawn. */
+  labelScale: number;
+  gridOpacity: number;
+  showSpread: boolean;
+}
+
+/** Coerce a wire value into [min,max], falling back when absent or non-numeric.
+ *  These arrive from RTDB, so they can't be trusted to be sane numbers. The
+ *  bounds mirror the store's own ranges (see MIN/MAX_LABEL_SCALE, gridOpacity). */
+function clampNum(v: unknown, min: number, max: number, fallback: number): number {
+  return typeof v === "number" && Number.isFinite(v)
+    ? Math.min(max, Math.max(min, v))
+    : fallback;
 }
 
 function roomPath(roomId: string): string {
@@ -34,6 +49,9 @@ export async function publishStream(roomId: string, state: StreamState): Promise
     targets: state.targets,
     shapes: state.shapes.map(toWireShape),
     sessionName: state.sessionName,
+    labelScale: state.labelScale,
+    gridOpacity: state.gridOpacity,
+    showSpread: state.showSpread,
     updatedAt: Date.now(),
   });
 }
@@ -80,6 +98,10 @@ export function subscribeStream(
           targets: Array.isArray(v.targets) ? v.targets : [],
           shapes: Array.isArray(v.shapes) ? v.shapes : [],
           sessionName: typeof v.sessionName === "string" ? v.sessionName : "",
+          // Absent (older host / never set) falls back to the app's defaults.
+          labelScale: clampNum(v.labelScale, 0.5, 1, 1),
+          gridOpacity: clampNum(v.gridOpacity, 0, 1, 1),
+          showSpread: v.showSpread === true,
         });
       });
     })

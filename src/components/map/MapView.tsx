@@ -400,6 +400,7 @@ export default function MapView() {
   // document root rather than on MapContainer, whose props react-leaflet only
   // reads once at mount — a later change to its `style` would never take effect.
   const labelScale = useAppStore((s) => s.labelScale);
+  const gridOpacity = useAppStore((s) => s.gridOpacity);
   useEffect(() => {
     document.documentElement.style.setProperty("--label-scale", String(labelScale));
   }, [labelScale]);
@@ -470,7 +471,7 @@ export default function MapView() {
             error: () => setImageLoaded(true),
           }}
         />
-        <MapGrid map={map} />
+        <MapGrid map={map} gridOpacity={gridOpacity} />
 
         <Pane name="shapes" style={{ zIndex: 455, pointerEvents: "none" }}>
           {(session?.shapes ?? []).map((shape) => (

@@ -14,6 +14,9 @@
         "mortar": { ".validate": "newData.hasChildren(['lat', 'lng'])" },
         "targets": { ".validate": "newData.hasChildren()" },
         "shapes": { ".validate": "newData.hasChildren()" },
+        "labelScale": { ".validate": "newData.isNumber()" },
+        "gridOpacity": { ".validate": "newData.isNumber()" },
+        "showSpread": { ".validate": "newData.isBoolean()" },
         "$other": { ".validate": false }
       }
     },

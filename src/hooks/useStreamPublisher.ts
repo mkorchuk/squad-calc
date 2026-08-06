@@ -12,12 +12,19 @@ const PUBLISH_INTERVAL_MS = 200;
 
 /**
  * Host side: while a stream is live, mirror the active session's map, mortar,
- * targets and shapes to its RTDB room on every change. Viewers are read-only.
+ * targets and shapes — plus the host's display settings (label font size, grid
+ * opacity, spread circles) so viewers match the host's screen — to its RTDB room
+ * on every change. Viewers are read-only.
  */
 export function useStreamPublisher(): void {
   const phase = useStreamStore((s) => s.phase);
   const roomId = useStreamStore((s) => s.roomId);
   const session = useAppStore((s) => s.getActiveSession());
+  // Display settings live outside the session; a change to one must still
+  // republish, so they're subscribed to and listed in the effect's deps below.
+  const labelScale = useAppStore((s) => s.labelScale);
+  const gridOpacity = useAppStore((s) => s.gridOpacity);
+  const showSpread = useAppStore((s) => s.showSpread);
 
   const live = phase === "live" && roomId !== null;
 
@@ -40,6 +47,9 @@ export function useStreamPublisher(): void {
       targets: session.targets,
       shapes: session.shapes ?? [],
       sessionName: session.name,
+      labelScale,
+      gridOpacity,
+      showSpread,
     };
 
     const flush = () => {
@@ -61,7 +71,7 @@ export function useStreamPublisher(): void {
         flush();
       }, PUBLISH_INTERVAL_MS - since);
     }
-  }, [live, roomId, session]);
+  }, [live, roomId, session, labelScale, gridOpacity, showSpread]);
 
   // Drop any queued write when the stream ends, so it can't resurrect the room
   // after removeStream().

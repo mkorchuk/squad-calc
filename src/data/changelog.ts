@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v1.8",
+    title: "Stream matches your display settings (minor update)",
+    changes: [
+      "The /live display and the share link now mirror your planner's target-label font size, map grid opacity, and mortar spread toggle, instead of each screen using its own defaults. Change a slider on the planning PC and the second screen follows.",
+    ],
+  },
+  {
     version: "v1.7",
     title: "Shape colours, deletion & changelog",
     changes: [
