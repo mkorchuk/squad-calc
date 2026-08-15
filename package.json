@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
+    "gen-icons": "node scripts/gen-icons.mjs",
     "fetch-maps": "node scripts/fetch-maps.mjs",
     "verify-maps": "node scripts/verify-maps.mjs",
     "deploy": "npm run fetch-maps && npm run build && firebase deploy --only hosting,database"
@@ -26,6 +27,8 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vitest": "^2.1.9"

@@ -14,6 +14,7 @@ This app (internally "SquadCalc Lite" in code/package name) is a stripped-down m
 
 ```bash
 npm test             # vitest, one pass (npm run test:watch to leave it running)
+npm run gen-icons    # regenerates the favicon / app-icon set in public/ from icons/ (only when the source art changes)
 npm run fetch-maps   # one-time: downloads the basemap + heightmap for all 25 maps into public/maps/ (gitignored)
 npm run verify-maps  # checks every map this app knows about is actually present on the mirror
 npm run deploy       # fetch-maps + build + firebase deploy --only hosting,database (https://squadcalc.web.app)
@@ -110,6 +111,10 @@ The host mints the code, the display consumes it — deliberately, because it ne
 - [App.tsx](src/App.tsx) — checks `?watch=` **first** (so `/live?watch=…` still spectates a specific room), then `/live` by pathname. Both work in dev and in production because Vite's SPA mode and the Firebase hosting rewrite each serve `index.html` for unknown paths.
 
 RTDB rules are in [database.rules.json](database.rules.json). Still no auth, so they do structural validation and key-shape restriction rather than authorization: `rooms/` and `codes/` are each scoped, `$other` children are rejected, and nothing is granted above those paths. `npm run deploy` pushes `hosting,database` together so rules ship with the app; **if you change the rules, they must be live before the feature works** — the app talks to production RTDB even from `npm run dev`.
+
+### App icons / favicon
+
+The browser-tab favicon and install icons are generated from a single source PNG (`icons/SquadCalc Icons-selection.png`, 480×480 with transparent rounded corners) by [scripts/gen-icons.mjs](scripts/gen-icons.mjs) (`npm run gen-icons`, uses `sharp` + `png-to-ico`, both devDeps). It writes into `public/`: `favicon.ico` (16/32/48), `favicon-16/32.png`, `apple-touch-icon.png` (180, **flattened** onto `--bg` `#1b2029` so iOS doesn't render black corners), and `icon-192/512.png` for the manifest. These outputs **are committed** (unlike `public/maps/`, which is gitignored and fetched) — a fresh clone has them, so `gen-icons` only needs re-running when the source art changes. The `<link>`/`theme-color` tags and [public/site.webmanifest](public/site.webmanifest) are wired in [index.html](index.html); vite copies `public/` verbatim so they land at the site root. The icons aren't content-hashed, so if the source art is replaced, returning visitors may keep the cached favicon for a while.
 
 ### Map imagery
 
