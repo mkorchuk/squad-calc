@@ -1,10 +1,14 @@
 import { useAppStore } from "../../store/useAppStore";
+import { getWeapon } from "../../data/weapons";
 import StreamButton from "../StreamButton";
 
 export default function PlacementToolbar() {
   const mode = useAppStore((s) => s.placementMode);
   const setMode = useAppStore((s) => s.setPlacementMode);
   const clearMarks = useAppStore((s) => s.clearMarks);
+  // The button places whichever weapon the session has selected, so it's named
+  // after it. (The mode itself is still called "mortar" internally.)
+  const weaponName = useAppStore((s) => getWeapon(s.getActiveSession()?.weaponId).name);
 
   return (
     <div className="toolbar">
@@ -13,10 +17,10 @@ export default function PlacementToolbar() {
           mode === "mortar" ? "toolbar__btn--active" : ""
         }`}
         onClick={() => setMode("mortar")}
-        title="Click the map to place the mortar"
+        title={`Click the map to place the ${weaponName.toLowerCase()}`}
       >
         <span className="toolbar__dot toolbar__dot--mortar" />
-        Mortar
+        {weaponName}
       </button>
       <button
         className={`toolbar__btn toolbar__btn--target ${

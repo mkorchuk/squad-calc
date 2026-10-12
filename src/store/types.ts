@@ -60,6 +60,12 @@ export interface Session {
   id: string;
   name: string;
   mapId: string;
+  /**
+   * Which weapon the `mortar` mark is (see data/weapons.ts). Optional because
+   * sessions persisted before weapons were selectable have none — read it
+   * through getWeapon(), which treats a missing id as the mortar.
+   */
+  weaponId?: string;
   mortar: MortarMark | null;
   targets: TargetMark[];
   shapes: Shape[];

@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "v1.9",
+    title: "Hell Cannon",
+    changes: [
+      "Added the Hell Cannon as a second weapon. Pick it from the new weapon list next to the map list; the range circle, spread and firing solutions all follow.",
+      "Hell Cannon elevations are shown in degrees to one decimal, as its sight reads them. The mortar still reads in mils.",
+      "The weapon is remembered per session, saved in session files, and mirrored to the /live display and the share link. Switching weapon keeps your marks.",
+    ],
+  },
+  {
     version: "v1.8",
     title: "Stream matches your display settings (minor update)",
     changes: [

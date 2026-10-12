@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { throttledLocalStorage } from "./persistStorage";
 import { DEFAULT_MAP_ID } from "../data/maps";
 import { DEFAULT_SHAPE_COLOR, isHexColor } from "../data/shapeColors";
+import { DEFAULT_WEAPON_ID, isWeaponId } from "../data/weapons";
 import type { ImportedSession } from "../lib/sessionFile";
 import type { PlacementMode, Session, ShapeInput, TargetMark, TargetTool } from "./types";
 
@@ -30,7 +31,15 @@ function uid(): string {
 }
 
 function makeSession(name: string, mapId = DEFAULT_MAP_ID): Session {
-  return { id: uid(), name, mapId, mortar: null, targets: [], shapes: [] };
+  return {
+    id: uid(),
+    name,
+    mapId,
+    weaponId: DEFAULT_WEAPON_ID,
+    mortar: null,
+    targets: [],
+    shapes: [],
+  };
 }
 
 interface AppState {
@@ -57,6 +66,7 @@ interface AppState {
   selectSession: (id: string) => void;
 
   setMapId: (mapId: string) => void;
+  setWeaponId: (weaponId: string) => void;
   setPlacementMode: (mode: PlacementMode) => void;
   setTargetTool: (tool: TargetTool) => void;
   setSpacing: (spacing: number) => void;
@@ -114,6 +124,7 @@ export const useAppStore = create<AppState>()(
               id: uid(),
               name: data.name,
               mapId: data.mapId,
+              weaponId: data.weaponId,
               mortar: data.mortar,
               targets: data.targets.map((t) => ({ id: uid(), lat: t.lat, lng: t.lng })),
               shapes: data.shapes.map((s) => ({ ...s, id: uid() })),
@@ -151,6 +162,16 @@ export const useAppStore = create<AppState>()(
               shapes: [],
             })),
           })),
+
+        // Unlike the map, the weapon isn't something marks are relative to:
+        // the same positions just get a different firing solution, so nothing
+        // is cleared.
+        setWeaponId: (weaponId) =>
+          set((state) =>
+            isWeaponId(weaponId)
+              ? { sessions: updateActive(state, (s) => ({ ...s, weaponId })) }
+              : state
+          ),
 
         setPlacementMode: (mode) => set({ placementMode: mode }),
 

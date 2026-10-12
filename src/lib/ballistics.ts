@@ -1,5 +1,6 @@
 /**
- * Pure firing-solution math for the in-game mortar.
+ * Pure firing-solution math for the in-game indirect-fire weapons (see
+ * data/weapons.ts); every function takes the Weapon it is solving for.
  *
  * Coordinate convention: markers store Leaflet {lat, lng} where the map image is
  * placed in meters directly (see lib/mapBounds.ts), so 1 unit == 1 meter and
@@ -80,6 +81,17 @@ export function getElevation(
   }
 
   return { deg, mil: deg * MIL_PER_DEGREE, inRange: true };
+}
+
+/**
+ * The elevation as the weapon's own sight reads it: whole mils for the mortar,
+ * one-decimal degrees for the Hell Cannon. No unit symbol — the map label shows
+ * the bare number. Only meaningful for an in-range elevation; callers decide
+ * what an out-of-range one looks like.
+ */
+export function formatElevation(elevation: Elevation, weapon: Weapon): string {
+  const value = weapon.unit === "mil" ? elevation.mil : elevation.deg;
+  return value.toFixed(weapon.elevationPrecision);
 }
 
 export interface Spread {

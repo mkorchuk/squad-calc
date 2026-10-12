@@ -10,6 +10,7 @@
         ".validate": "newData.hasChildren(['mapId', 'updatedAt'])",
         "mapId": { ".validate": "newData.isString() && newData.val().length <= 64" },
         "sessionName": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "weaponId": { ".validate": "newData.isString() && newData.val().length <= 32" },
         "updatedAt": { ".validate": "newData.isNumber()" },
         "mortar": { ".validate": "newData.hasChildren(['lat', 'lng'])" },
         "targets": { ".validate": "newData.hasChildren()" },

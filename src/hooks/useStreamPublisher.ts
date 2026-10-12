@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "../store/useAppStore";
 import { useStreamStore } from "../store/useStreamStore";
+import { getWeapon } from "../data/weapons";
 import { publishStream, removeRoomOnDisconnect, type StreamState } from "../lib/stream";
 
 /**
@@ -43,6 +44,9 @@ export function useStreamPublisher(): void {
 
     pendingRef.current = {
       mapId: session.mapId,
+      // Resolved, never passed through raw: weaponId is optional on a session
+      // and an undefined here would make RTDB reject the whole write.
+      weaponId: getWeapon(session.weaponId).id,
       mortar: session.mortar,
       targets: session.targets,
       shapes: session.shapes ?? [],

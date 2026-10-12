@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatElevation,
   getBearing,
   getDistance,
   getElevation,
@@ -7,7 +8,7 @@ import {
   getSpread,
   spreadEllipse,
 } from "./ballistics";
-import { STANDARD_MORTAR } from "../data/weapons";
+import { HELL_CANNON, STANDARD_MORTAR } from "../data/weapons";
 import type { Weapon } from "../data/weapons";
 
 const W = STANDARD_MORTAR;
@@ -194,6 +195,85 @@ describe("getSpread", () => {
     const far = getSpread(1000, W)!;
     expect(far.semiMajor / near.semiMajor).toBeGreaterThan(0.5);
     expect(far.semiMajor / near.semiMajor).toBeLessThan(2);
+  });
+});
+
+/**
+ * The Hell Cannon shares the mortar's equations but differs in every constant
+ * the tests above lean on (no minimum distance, a wider arc, its own gravity),
+ * so it gets the same independent landing check rather than an assumption that
+ * a second Weapon entry "just works".
+ */
+describe("Hell Cannon", () => {
+  const HC = HELL_CANNON;
+  const HC_MAX_RANGE = getMaxRange(HC);
+
+  it("produces an angle that actually lands on the target", () => {
+    for (const distance of [20, 100, 300, 500, 700, 900]) {
+      const elevation = getElevation(distance, HC);
+      expect(elevation.inRange).toBe(true);
+      expect(landingDistance(elevation.deg, HC, 0)).toBeCloseTo(distance, 6);
+    }
+  });
+
+  it("still lands on the target over sloped ground", () => {
+    for (const heightDiff of [-120, -40, 40, 120]) {
+      const elevation = getElevation(500, HC, heightDiff);
+      expect(elevation.inRange).toBe(true);
+      expect(landingDistance(elevation.deg, HC, heightDiff)).toBeCloseTo(500, 6);
+    }
+  });
+
+  it("stays on the high-angle branch although its barrel goes down to 10°", () => {
+    let previous = Infinity;
+    for (let distance = 50; distance < HC_MAX_RANGE * 0.98; distance += 50) {
+      const { deg, inRange } = getElevation(distance, HC);
+      expect(inRange).toBe(true);
+      expect(deg).toBeGreaterThan(45);
+      expect(deg).toBeLessThan(previous);
+      previous = deg;
+    }
+  });
+
+  it("has no minimum distance, but no solution on top of itself", () => {
+    expect(getElevation(1, HC).inRange).toBe(true);
+    expect(getElevation(0, HC).inRange).toBe(false);
+  });
+
+  it("reaches a shorter range than the mortar and refuses anything past it", () => {
+    expect(HC_MAX_RANGE).toBeGreaterThan(900);
+    expect(HC_MAX_RANGE).toBeLessThan(MAX_RANGE);
+    expect(getElevation(HC_MAX_RANGE * 0.98, HC).inRange).toBe(true);
+    expect(getElevation(HC_MAX_RANGE * 1.01, HC).inRange).toBe(false);
+  });
+
+  it("keeps the returned angle inside the weapon's firing arc", () => {
+    const [minDeg, maxDeg] = HC.minElevation;
+    for (let distance = 1; distance < HC_MAX_RANGE; distance += 25) {
+      const { deg, inRange } = getElevation(distance, HC);
+      if (!inRange) continue;
+      expect(deg).toBeGreaterThanOrEqual(minDeg);
+      expect(deg).toBeLessThanOrEqual(maxDeg);
+    }
+  });
+
+  it("scatters wider than the mortar at the same range", () => {
+    const mortar = getSpread(500, W)!;
+    const hell = getSpread(500, HC)!;
+    expect(hell.semiMajor).toBeGreaterThan(mortar.semiMajor);
+  });
+});
+
+describe("formatElevation", () => {
+  it("reads the mortar in whole mils", () => {
+    const elevation = getElevation(600, W);
+    expect(formatElevation(elevation, W)).toBe(String(Math.round(elevation.mil)));
+  });
+
+  it("reads the Hell Cannon in degrees to one decimal", () => {
+    const elevation = getElevation(500, HELL_CANNON);
+    expect(formatElevation(elevation, HELL_CANNON)).toBe(elevation.deg.toFixed(1));
+    expect(formatElevation(elevation, HELL_CANNON)).toMatch(/^\d+\.\d$/);
   });
 });
 

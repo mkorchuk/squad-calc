@@ -557,6 +557,11 @@ button {
   outline: 1px solid var(--accent-2);
 }
 
+/* The weapon list sits beside the map one and holds much shorter names. */
+.map-select--weapon {
+  min-width: 130px;
+}
+
 /* ---------- Target tools ---------- */
 .tool-row {
   display: flex;

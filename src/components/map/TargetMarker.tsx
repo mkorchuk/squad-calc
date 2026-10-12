@@ -4,8 +4,9 @@ import L, { type Marker as LeafletMarker } from "leaflet";
 import { useAppStore } from "../../store/useAppStore";
 import type { MortarMark, TargetMark } from "../../store/types";
 import type { MapDefinition } from "../../data/maps";
-import { STANDARD_MORTAR } from "../../data/weapons";
+import type { Weapon } from "../../data/weapons";
 import {
+  formatElevation,
   getBearing,
   getDistance,
   getElevation,
@@ -13,7 +14,7 @@ import {
   spreadEllipse,
 } from "../../lib/ballistics";
 import { sampleHeight, type HeightGrid } from "../../lib/heightmap";
-import { targetIcon } from "./markerIcons";
+import { NO_SOLUTION_TEXT, targetIcon } from "./markerIcons";
 
 /** Dispersion ellipse styling — a translucent red area. Shared with the stream
  *  viewer so its spread circles match the planner's exactly. */
@@ -29,11 +30,14 @@ interface Props {
   target: TargetMark;
   index: number;
   mortar: MortarMark | null;
+  /** The session's weapon. Always one of the WEAPONS entries, so the reference
+   *  is stable and doesn't defeat the memo below. */
+  weapon: Weapon;
   map: MapDefinition;
   heightmap: HeightGrid | null;
 }
 
-function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
+function TargetMarker({ target, index, mortar, weapon, map, heightmap }: Props) {
   const moveTarget = useAppStore((s) => s.moveTarget);
   const removeTarget = useAppStore((s) => s.removeTarget);
   const showSpread = useAppStore((s) => s.showSpread);
@@ -47,10 +51,10 @@ function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
     const mortarAlt = sampleHeight(heightmap, map, mortar.lat, mortar.lng);
     const targetAlt = sampleHeight(heightmap, map, target.lat, target.lng);
     const heightDiff = targetAlt - mortarAlt;
-    const elevation = getElevation(distance, STANDARD_MORTAR, heightDiff);
-    const spread = getSpread(distance, STANDARD_MORTAR, heightDiff);
+    const elevation = getElevation(distance, weapon, heightDiff);
+    const spread = getSpread(distance, weapon, heightDiff);
     return { distance, bearing, elevation, spread, mortarAlt, targetAlt, heightDiff };
-  }, [mortar, target, heightmap, map]);
+  }, [mortar, target, weapon, heightmap, map]);
 
   // 48 points per target; memoised so react-leaflet doesn't setLatLngs on every
   // render, and so a screen full of spread circles isn't rebuilt needlessly.
@@ -64,9 +68,12 @@ function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
     () =>
       targetIcon({
         bearing: solution ? solution.bearing : null,
-        mil: solution && solution.elevation.inRange ? solution.elevation.mil : null,
+        elevation:
+          solution && solution.elevation.inRange
+            ? formatElevation(solution.elevation, weapon)
+            : null,
       }),
-    [solution]
+    [solution, weapon]
   );
 
   const handlers = useMemo(
@@ -80,20 +87,22 @@ function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
         const heightDiff =
           sampleHeight(heightmap, map, pos.lat, pos.lng) -
           sampleHeight(heightmap, map, mortar.lat, mortar.lng);
-        const elevation = getElevation(distance, STANDARD_MORTAR, heightDiff);
+        const elevation = getElevation(distance, weapon, heightDiff);
         const el = m.getElement();
         if (el) {
           const milEl = el.querySelector(".target-marker__mil");
           const brgEl = el.querySelector(".target-marker__bearing");
           if (milEl) {
-            milEl.textContent = elevation.inRange ? String(Math.round(elevation.mil)) : "∞";
+            milEl.textContent = elevation.inRange
+              ? formatElevation(elevation, weapon)
+              : NO_SOLUTION_TEXT;
           }
           if (brgEl) brgEl.textContent = `${bearing.toFixed(1)}°`;
         }
 
         const spreadLayer = spreadRef.current;
         if (spreadLayer) {
-          const spread = getSpread(distance, STANDARD_MORTAR, heightDiff);
+          const spread = getSpread(distance, weapon, heightDiff);
           if (spread) {
             spreadLayer.setLatLngs(spreadEllipse(pos, spread, bearing));
             spreadLayer.setStyle(SPREAD_STYLE);
@@ -113,7 +122,7 @@ function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
         removeTarget(target.id);
       },
     }),
-    [moveTarget, removeTarget, target.id, mortar, heightmap, map]
+    [moveTarget, removeTarget, target.id, mortar, weapon, heightmap, map]
   );
 
   return (
@@ -137,7 +146,9 @@ function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
         <div className="readout__title">Target {index}</div>
 
         {!mortar && (
-          <div className="readout__warn">Place a mortar to compute a solution.</div>
+          <div className="readout__warn">
+            Place the {weapon.name.toLowerCase()} to compute a solution.
+          </div>
         )}
 
         {solution && (
@@ -154,11 +165,15 @@ function TargetMarker({ target, index, mortar, map, heightmap }: Props) {
               <div className="readout__row">
                 <span className="readout__label">Elevation</span>
                 <span className="readout__value">
-                  {solution.elevation.deg.toFixed(1)}° / {Math.round(solution.elevation.mil)} mil
+                  {solution.elevation.deg.toFixed(1)}°
+                  {/* A mil-sighted weapon also gets the number its sight reads. */}
+                  {weapon.unit === "mil" && ` / ${formatElevation(solution.elevation, weapon)} mil`}
                 </span>
               </div>
             ) : (
-              <div className="readout__warn">Out of range for standard mortar.</div>
+              <div className="readout__warn">
+                Out of range for the {weapon.name.toLowerCase()}.
+              </div>
             )}
             <div className="readout__row">
               <span className="readout__label">Altitude</span>

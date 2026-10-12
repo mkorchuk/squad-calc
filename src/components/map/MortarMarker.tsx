@@ -4,24 +4,25 @@ import L, { type Marker as LeafletMarker } from "leaflet";
 import { useAppStore } from "../../store/useAppStore";
 import type { MortarMark } from "../../store/types";
 import type { MapDefinition } from "../../data/maps";
-import { STANDARD_MORTAR } from "../../data/weapons";
+import type { Weapon } from "../../data/weapons";
 import { getMaxRange } from "../../lib/ballistics";
 import { sampleHeight, type HeightGrid } from "../../lib/heightmap";
 import { mortarIcon } from "./markerIcons";
 
 interface Props {
   mortar: MortarMark;
+  /** The session's weapon — sizes the range circle and names the popup. */
+  weapon: Weapon;
   map: MapDefinition;
   heightmap: HeightGrid | null;
 }
 
-const MAX_RANGE = getMaxRange(STANDARD_MORTAR);
-
-export default function MortarMarker({ mortar, map, heightmap }: Props) {
+export default function MortarMarker({ mortar, weapon, map, heightmap }: Props) {
   const moveMortar = useAppStore((s) => s.moveMortar);
   const clearMortar = useAppStore((s) => s.clearMortar);
   const ref = useRef<LeafletMarker>(null);
   const rangeRef = useRef<L.Circle>(null);
+  const maxRange = useMemo(() => getMaxRange(weapon), [weapon]);
 
   const handlers = useMemo(
     () => ({
@@ -50,7 +51,7 @@ export default function MortarMarker({ mortar, map, heightmap }: Props) {
       <Circle
         ref={rangeRef}
         center={[mortar.lat, mortar.lng]}
-        radius={MAX_RANGE}
+        radius={maxRange}
         pathOptions={{
           color: "#5f86b3",
           weight: 1.5,
@@ -70,7 +71,7 @@ export default function MortarMarker({ mortar, map, heightmap }: Props) {
       >
         <Popup>
           <div className="readout__title" style={{ color: "var(--mortar)" }}>
-            Mortar
+            {weapon.name}
           </div>
           <div className="readout__row">
             <span className="readout__label">Position</span>
@@ -86,7 +87,7 @@ export default function MortarMarker({ mortar, map, heightmap }: Props) {
           </div>
           <div className="readout__row">
             <span className="readout__label">Max range</span>
-            <span className="readout__value">{Math.round(MAX_RANGE)} m</span>
+            <span className="readout__value">{Math.round(maxRange)} m</span>
           </div>
         </Popup>
       </Marker>

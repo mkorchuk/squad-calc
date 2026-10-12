@@ -21,17 +21,23 @@ export const mortarIcon: L.DivIcon = L.divIcon({
 });
 
 export interface TargetLabel {
-  mil: number | null; // null => no mortar placed / out of range
+  /** Elevation already formatted in the weapon's unit (see formatElevation);
+   *  null => no weapon placed / out of range. */
+  elevation: string | null;
   bearing: number | null;
 }
 
+/** What the label shows in place of an elevation when there's no solution. */
+export const NO_SOLUTION_TEXT = "∞";
+
 /**
- * Red ring with an optional firing-data label to its left (elevation mil on top,
- * bearing below). No index number.
+ * Red ring with an optional firing-data label to its left (elevation on top,
+ * bearing below). No index number. The `__mil` class name predates the Hell
+ * Cannon: it holds the elevation in whichever unit the weapon uses.
  */
 export function targetIcon(label: TargetLabel): L.DivIcon {
   const hasLabel = label.bearing !== null;
-  const milText = label.mil !== null ? String(Math.round(label.mil)) : "∞";
+  const milText = label.elevation ?? NO_SOLUTION_TEXT;
   const bearingText = label.bearing !== null ? `${label.bearing.toFixed(1)}°` : "";
 
   const labelHtml = hasLabel

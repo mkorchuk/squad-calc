@@ -74,7 +74,7 @@ export default function ToolPanel() {
       <p className="tool-hint">
         {TOOL_META.find((t) => t.tool === tool)?.hint}
         {tool === "space" &&
-          " Spacing is sized automatically from the mortar's spread radius, so targets tile to cover the area."}
+          " Spacing is sized automatically from the weapon's spread radius, so targets tile to cover the area."}
       </p>
 
       <div className="tool-divider" />
@@ -82,7 +82,7 @@ export default function ToolPanel() {
       <button
         className={`tool-toggle ${showSpread ? "tool-toggle--active" : ""}`}
         onClick={toggleSpread}
-        title="Draw the mortar spread (dispersion) circle around each target"
+        title="Draw the weapon's spread (dispersion) circle around each target"
         aria-pressed={showSpread}
       >
         <span className="tool-toggle__dot" />

@@ -1,10 +1,14 @@
 import { firebase } from "./firebase";
+import { DEFAULT_WEAPON_ID, isWeaponId } from "../data/weapons";
 import type { MortarMark, Shape, TargetMark } from "../store/types";
 
 /** The slice of a session mirrored to spectators. Built explicitly so no field is
  *  ever `undefined` (RTDB rejects the whole write on undefined). */
 export interface StreamState {
   mapId: string;
+  /** The session's weapon. Viewers recompute the firing solutions themselves,
+   *  so they need it to show the host's elevations rather than the mortar's. */
+  weaponId: string;
   mortar: MortarMark | null;
   targets: TargetMark[];
   shapes: Shape[];
@@ -45,6 +49,7 @@ export async function publishStream(roomId: string, state: StreamState): Promise
   const { db, ref, set } = await firebase();
   return set(ref(db, roomPath(roomId)), {
     mapId: state.mapId,
+    weaponId: state.weaponId,
     mortar: state.mortar,
     targets: state.targets,
     shapes: state.shapes.map(toWireShape),
@@ -94,6 +99,8 @@ export function subscribeStream(
         }
         onState({
           mapId: typeof v.mapId === "string" ? v.mapId : "",
+          // Absent from a host on a build before weapons were selectable.
+          weaponId: isWeaponId(v.weaponId) ? v.weaponId : DEFAULT_WEAPON_ID,
           mortar: v.mortar ?? null,
           targets: Array.isArray(v.targets) ? v.targets : [],
           shapes: Array.isArray(v.shapes) ? v.shapes : [],

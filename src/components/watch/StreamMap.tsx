@@ -5,10 +5,17 @@ import { getMap } from "../../data/maps";
 import { boundsFor, latLngBoundsFor } from "../../lib/mapBounds";
 import { useHeightmap } from "../../hooks/useHeightmap";
 import { sampleHeight } from "../../lib/heightmap";
-import { STANDARD_MORTAR } from "../../data/weapons";
-import { getBearing, getDistance, getElevation, getSpread, spreadEllipse } from "../../lib/ballistics";
+import { getWeapon } from "../../data/weapons";
+import {
+  formatElevation,
+  getBearing,
+  getDistance,
+  getElevation,
+  getSpread,
+  spreadEllipse,
+} from "../../lib/ballistics";
 import type { StreamState } from "../../lib/stream";
-import { mortarIcon, targetIcon } from "../map/markerIcons";
+import { mortarIcon, targetIcon, type TargetLabel } from "../map/markerIcons";
 import { SPREAD_STYLE } from "../map/TargetMarker";
 import MapGrid from "../map/MapGrid";
 import ShapeLayer from "../map/ShapeLayer";
@@ -39,6 +46,8 @@ export default function StreamMap({
   banner?: ReactNode;
 }) {
   const map = getMap(stream.mapId);
+  // The host's weapon: the solutions below are recomputed here, not streamed.
+  const weapon = getWeapon(stream.weaponId);
   const heightmap = useHeightmap(map.id);
 
   const targets = stream.targets ?? [];
@@ -90,7 +99,7 @@ export default function StreamMap({
         )}
 
         {targets.map((t) => {
-          let label: { mil: number | null; bearing: number | null } = { mil: null, bearing: null };
+          let label: TargetLabel = { elevation: null, bearing: null };
           let spreadRing: [number, number][] | null = null;
           if (mortar) {
             const distance = getDistance(mortar, t);
@@ -98,10 +107,13 @@ export default function StreamMap({
             const heightDiff =
               sampleHeight(heightmap, map, t.lat, t.lng) -
               sampleHeight(heightmap, map, mortar.lat, mortar.lng);
-            const elevation = getElevation(distance, STANDARD_MORTAR, heightDiff);
-            label = { mil: elevation.inRange ? elevation.mil : null, bearing };
+            const elevation = getElevation(distance, weapon, heightDiff);
+            label = {
+              elevation: elevation.inRange ? formatElevation(elevation, weapon) : null,
+              bearing,
+            };
             if (stream.showSpread) {
-              const spread = getSpread(distance, STANDARD_MORTAR, heightDiff);
+              const spread = getSpread(distance, weapon, heightDiff);
               if (spread) spreadRing = spreadEllipse(t, spread, bearing);
             }
           }

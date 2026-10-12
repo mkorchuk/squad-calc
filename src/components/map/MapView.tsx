@@ -14,7 +14,7 @@ import {
 } from "react-leaflet";
 import { getMap } from "../../data/maps";
 import type { MapDefinition } from "../../data/maps";
-import { STANDARD_MORTAR } from "../../data/weapons";
+import { getWeapon, type Weapon } from "../../data/weapons";
 import { getDistance, getSpread } from "../../lib/ballistics";
 import { boundsFor, latLngBoundsFor } from "../../lib/mapBounds";
 import { loadHeightmap, sampleHeight, type HeightGrid } from "../../lib/heightmap";
@@ -96,6 +96,8 @@ interface MapControllerProps {
    * spread-radius-based spacing (see `spaceSpacing` below). */
   mapDef: MapDefinition;
   heightmap: HeightGrid | null;
+  /** The session's weapon, whose spread sizes that same spacing. */
+  weapon: Weapon;
   /** The shape tool armed from the right-click menu, or null when placing targets. */
   armed: ShapeType | null;
   onOpenMenu: (clientX: number, clientY: number) => void;
@@ -106,6 +108,7 @@ function MapController({
   mapId,
   mapDef,
   heightmap,
+  weapon,
   armed,
   onOpenMenu,
   onFinishArmed,
@@ -220,7 +223,7 @@ function MapController({
   );
 
   /**
-   * Spacing for the Space tool: sized from the mortar's spread (dispersion)
+   * Spacing for the Space tool: sized from the weapon's spread (dispersion)
    * radius at the drawn area's centroid, rather than the manual spacing value,
    * so placed targets' footprints tile to cover the area with no gaps. Uses the
    * standard hexagonal-covering spacing (radius * sqrt(3)) between centers.
@@ -238,10 +241,10 @@ function MapController({
       const heightDiff =
         sampleHeight(heightmap, mapDef, centroid.lat, centroid.lng) -
         sampleHeight(heightmap, mapDef, mortar.lat, mortar.lng);
-      const spread = getSpread(distance, STANDARD_MORTAR, heightDiff);
+      const spread = getSpread(distance, weapon, heightDiff);
       return spread ? spread.radius * Math.sqrt(3) : spacing;
     },
-    [mortar, mapDef, heightmap, spacing]
+    [mortar, weapon, mapDef, heightmap, spacing]
   );
 
   useMapEvents({
@@ -394,6 +397,7 @@ function MapController({
 export default function MapView() {
   const session = useAppStore((s) => s.getActiveSession());
   const map = getMap(session?.mapId ?? "");
+  const weapon = getWeapon(session?.weaponId);
   const heightmap = useHeightmap(map.id);
 
   // Target label font sizes are `calc(... * var(--label-scale))`. It's set on the
@@ -458,6 +462,7 @@ export default function MapView() {
           mapId={map.id}
           mapDef={map}
           heightmap={heightmap}
+          weapon={weapon}
           armed={armed}
           onOpenMenu={(x, y) => setMenu({ x, y })}
           onFinishArmed={() => setArmed(null)}
@@ -484,7 +489,12 @@ export default function MapView() {
         <Pane name="spread" style={{ zIndex: 452, pointerEvents: "none" }} />
 
         {session?.mortar && (
-          <MortarMarker mortar={session.mortar} map={map} heightmap={heightmap} />
+          <MortarMarker
+            mortar={session.mortar}
+            weapon={weapon}
+            map={map}
+            heightmap={heightmap}
+          />
         )}
         {session?.targets.map((target, i) => (
           <TargetMarker
@@ -492,6 +502,7 @@ export default function MapView() {
             target={target}
             index={i + 1}
             mortar={session.mortar}
+            weapon={weapon}
             map={map}
             heightmap={heightmap}
           />

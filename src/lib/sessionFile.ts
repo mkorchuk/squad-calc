@@ -1,8 +1,8 @@
 /**
  * Save/load a session as a standalone JSON file.
  *
- * JSON is used because a session is just structured data (map id, mortar,
- * targets, shapes) with no binary content — it round-trips losslessly, stays
+ * JSON is used because a session is just structured data (map id, weapon id,
+ * mortar, targets, shapes) with no binary content — it round-trips losslessly, stays
  * human-readable/diffable, and needs no extra parsing library in the browser.
  *
  * Shapes are written without their ids: the store mints fresh ones on import,
@@ -10,6 +10,7 @@
  */
 import { MAPS, DEFAULT_MAP_ID } from "../data/maps";
 import { isHexColor } from "../data/shapeColors";
+import { DEFAULT_WEAPON_ID, getWeapon, isWeaponId } from "../data/weapons";
 import type { Session, ShapeInput } from "../store/types";
 
 const FILE_FORMAT = "squadcalc-session";
@@ -20,6 +21,7 @@ interface SessionFileV1 {
   version: typeof FILE_VERSION;
   name: string;
   mapId: string;
+  weaponId: string;
   mortar: { lat: number; lng: number } | null;
   targets: { lat: number; lng: number }[];
   shapes: ShapeInput[];
@@ -28,6 +30,7 @@ interface SessionFileV1 {
 export interface ImportedSession {
   name: string;
   mapId: string;
+  weaponId: string;
   mortar: { lat: number; lng: number } | null;
   targets: { lat: number; lng: number }[];
   shapes: ShapeInput[];
@@ -71,6 +74,7 @@ export function downloadSession(session: Session): void {
     version: FILE_VERSION,
     name: session.name,
     mapId: session.mapId,
+    weaponId: getWeapon(session.weaponId).id,
     mortar: session.mortar ? { lat: session.mortar.lat, lng: session.mortar.lng } : null,
     targets: session.targets.map((t) => ({ lat: t.lat, lng: t.lng })),
     shapes: session.shapes.map(({ id: _id, ...rest }) => rest),
@@ -103,6 +107,9 @@ export function parseSessionFile(text: string): ImportedSession {
   const d = data as Record<string, unknown>;
   const name = typeof d.name === "string" && d.name.trim() ? d.name.trim() : "Imported session";
   const mapId = typeof d.mapId === "string" && MAPS.some((m) => m.id === d.mapId) ? d.mapId : DEFAULT_MAP_ID;
+  // Absent in files written before weapons were selectable (those were mortar
+  // sessions); an id this build doesn't know falls back the same way.
+  const weaponId = isWeaponId(d.weaponId) ? d.weaponId : DEFAULT_WEAPON_ID;
   const mortar = isFinitePoint(d.mortar) ? { lat: d.mortar.lat, lng: d.mortar.lng } : null;
   const targets = Array.isArray(d.targets) ? d.targets.filter(isFinitePoint).map((t) => ({ lat: t.lat, lng: t.lng })) : [];
   // Absent in files written before shapes were saved — treat as none, not an error.
@@ -110,7 +117,7 @@ export function parseSessionFile(text: string): ImportedSession {
     ? d.shapes.map(toShapeInput).filter((s): s is ShapeInput => s !== null)
     : [];
 
-  return { name, mapId, mortar, targets, shapes };
+  return { name, mapId, weaponId, mortar, targets, shapes };
 }
 
 /** Reads a File (e.g. from a file input) and parses it as a session. */

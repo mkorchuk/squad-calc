@@ -5,11 +5,13 @@ A stripped-down mortar/target planner for Squad.
 ## Features
 
 - All Squad maps, selectable from the top-right dropdown.
-- Place a **mortar** (blue) and **targets** (red) by clicking the map. Markers are draggable.
-- Each target shows **bearing**, **distance**, and firing **elevation** (in degrees and mil),
-  using the standard Squad Mortar ballistics. Elevation accounts for **terrain altitude**
-  (heightmap-based); popups show each mark's altitude.
-- **Sessions** in the left sidebar — each keeps its own map and marks, persisted in the browser
+- Two weapons, selectable from the dropdown next to the map one: the standard **Mortar** and
+  the **Hell Cannon**.
+- Place the **weapon** (blue) and **targets** (red) by clicking the map. Markers are draggable.
+- Each target shows **bearing**, **distance**, and firing **elevation** in the unit the weapon's
+  sight reads (mil for the Mortar, degrees for the Hell Cannon). Elevation accounts for
+  **terrain altitude** (heightmap-based); popups show each mark's altitude.
+- **Sessions** in the left sidebar — each keeps its own map, weapon and marks, persisted in the browser
   (`localStorage`). Each session can be **saved to a `.json` file** and **imported** back later
   (or shared with someone else) via the sidebar buttons.
 
@@ -36,7 +38,7 @@ React + TypeScript + Vite, Leaflet (`CRS.Simple`) via react-leaflet, zustand for
 ## Architecture (for extending)
 
 - `src/data/maps.ts` — map list + real in-game dimensions (meters).
-- `src/data/weapons.ts` — ballistics constants (add more weapons here).
+- `src/data/weapons.ts` — ballistics constants per weapon (add more to `WEAPONS` here).
 - `src/lib/ballistics.ts` — pure distance/bearing/elevation math.
 - `src/lib/mapBounds.ts` — places the map image in a meter-based coordinate space.
 - `src/store/` — zustand store + types (sessions, marks, placement mode).
